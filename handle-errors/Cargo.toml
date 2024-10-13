@@ -1,0 +1,13 @@
+[package]
+name = "handle-errors"
+version = "0.1.0"
+edition = "2021"
+
+
+
+[dependencies]
+warp = "0.3"
+sqlx = {version = "0.8"}
+reqwest = "0.11"
+tracing = "0.1"
+rust-argon2 = "1.0"
