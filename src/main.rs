@@ -59,6 +59,9 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let law_filter = warp::any().map(move || law.clone());
 
+    let redis_url = "redis://default:YezaUpCuecITVAKhENlObxOddVrcGRHH@autorack.proxy.rlwy.net:33895".to_string();
+    let redis_filter = warp::any().map(move || redis_url.clone());
+
 
 
     let cors = warp::cors()
@@ -231,7 +234,15 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(store_filter.clone())
         .and(warp::body::json())
+        .and(redis_filter.clone())
         .and_then(routes::authentication::login);
+
+    let are_you_in_redis = warp::post()
+        .and(warp::path("find_token_in_redis"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(redis_filter.clone())
+        .and_then(routes::authentication::are_you_in_redis);
 
 
     // let static_files = warp::fs::dir("static");
@@ -241,6 +252,7 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let routes = get_all_lines
         .or(login)
+        .or(are_you_in_redis)
         .or(update_css)
         .or(insert_content)
         .or(add_record)

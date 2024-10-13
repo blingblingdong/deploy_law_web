@@ -8,6 +8,7 @@ use warp::{
 use tracing::{event, Level, instrument};
 use reqwest::Error as ReqwestError;
 use argon2::Error as ArgonError;
+use redis::RedisError;
 
 
 #[derive(Debug)]
@@ -20,7 +21,9 @@ pub enum Error {
     ArgonLibraryError(ArgonError),
     WrongPassword,
     CannotDecryptToken,
-    Unauthorized
+    Unauthorized,
+    TokenNotFound,
+    CacheError(RedisError)
 }
 
 impl std::fmt::Display for Error {
@@ -32,6 +35,9 @@ impl std::fmt::Display for Error {
             Error::DatabaseQueryError(ref e) => {
                 write!(f, "Query not be excuted {}", e)
             },
+            Error::TokenNotFound => {
+                write!(f, "沒找到token!")
+            }
             Error::Unauthorized => {
                 write!(f, "認證錯誤")
             }
@@ -43,6 +49,9 @@ impl std::fmt::Display for Error {
             }
             Error::ArgonLibraryError(_) => {
                 write!(f, "無法驗證帳號")
+            },
+            Error::CacheError(ref e)=> {
+                write!(f, "redis錯誤{}", e)
             },
             Error::ExternalAPIError(ref err) => {
                 write!(f, "cannot execute: {}", err)
@@ -59,6 +68,12 @@ const DUPLICATE_KET: u32 = 23505;
 #[instrument]
 pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(error) = r.find::<Error>() {
+        event!(Level::ERROR, "{}", error);
+        Ok(warp::reply::with_status(
+            error.to_string(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ))
+    } else if let Some(error) = r.find::<RedisError>() {
         event!(Level::ERROR, "{}", error);
         Ok(warp::reply::with_status(
             error.to_string(),
@@ -87,6 +102,12 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
         Ok(warp::reply::with_status(
         "密碼錯誤".to_string(),
         StatusCode::UNAUTHORIZED,
+        ))
+    } else if let Some(crate::Error::TokenNotFound) = r.find() {
+        event!(Level::ERROR, "{}", "找不到token錯誤");
+        Ok(warp::reply::with_status(
+            "找不到token錯誤".to_string(),
+            StatusCode::UNPROCESSABLE_ENTITY,
         ))
     } else if let Some(crate::Error::DatabaseQueryError(e)) = r.find() {
         event!(Level::ERROR, "{}", "Database query error");

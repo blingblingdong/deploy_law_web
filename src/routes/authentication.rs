@@ -3,18 +3,35 @@ use argon2::Config;
 use chrono::{Duration, Utc};
 use paseto::v1::local_paseto;
 use rand::Rng;
+use redis::AsyncCommands;
 use tracing::info;
 use warp::{http::StatusCode, Filter};
 use crate::store::Store;
-use crate::types::account::{Account, Session};
+use crate::types::account::{Account, Redis_Database, Session};
 
 
-/*
-pub async fn redis_connection() -> redis::aio::Connection {
-    let client = redis::Client::open("redis://:11131028@localhost:6379").unwrap();
-    client.get_async_connection().await.unwrap()
+
+// 以姓名確認token是否存在
+pub async fn are_you_in_redis(you: String, redis_url: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut redis_database = Redis_Database::new(&redis_url).await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+    let exists_or_not: Result<Option<String>, redis::RedisError> = redis_database.connection.get(&you).await;
+
+    match exists_or_not {
+        Ok(Some(token)) => {
+            Ok(warp::reply::json(&token))
+        },
+        Ok(None) => {
+            // 如果没有找到令牌，返回自定义错误
+            Err(warp::reject::custom(handle_errors::Error::TokenNotFound))
+        },
+        Err(e) => {
+            // 如果操作中出现了错误，例如连接问题
+            eprintln!("Redis error: {}", e);  // 记录错误到 stderr 或日志系统
+            Err(warp::reject::custom(handle_errors::Error::CacheError(e)))
+        }
+    }
 }
-*/
 
 
 pub fn hash_password(password: &[u8]) -> String {
@@ -50,7 +67,7 @@ pub async fn register(store: Store, account: Account) -> Result<impl warp::Reply
     1.2 若否，則回傳ArgonLibraryError
 */
 
-pub async fn login(store: Store, login: Account) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn login(store: Store, login: Account ,redis_url: String,) -> Result<impl warp::Reply, warp::Rejection> {
     match store.get_account(login.user_name).await {
         Ok(account) => match verify_password(
             &account.password,
@@ -58,13 +75,7 @@ pub async fn login(store: Store, login: Account) -> Result<impl warp::Reply, war
         ) {
             Ok(verified) => {
                 if verified {
-                    let token = issue_token(account.user_name.clone());
-
-                    // let mut conn = redis_connection().await;
-
-                    // 儲存令牌到 Redis，設置 24 小時的過期時間
-                    // let _: () = conn.set_ex(token.clone(), account.user_name.clone(), 86400).await.unwrap();
-
+                    let token = issue_token(account.user_name.clone(), redis_url).await.unwrap();
                     Ok(warp::reply::json(&token))
                 } else {
                     Err(warp::reject::custom(handle_errors::Error::WrongPassword))
@@ -86,13 +97,14 @@ fn verify_password(
     argon2::verify_encoded(hash, password)
 }
 
-fn issue_token(
-    user_name: String
-) -> String {
+async fn issue_token(
+    user_name: String,
+    redis_url: String,
+) -> Result<String, handle_errors::Error> {
     let current_date_time = Utc::now();
     let dt = current_date_time + chrono::Duration::days(1);
 
-    paseto::tokens::PasetoBuilder::new()
+    let token = paseto::tokens::PasetoBuilder::new()
         .set_encryption_key(
             &Vec::from("RANDOM WORDS WINTER MACINTOSH PC".as_bytes())
         )
@@ -100,7 +112,13 @@ fn issue_token(
         .set_not_before(&Utc::now())
         .set_claim("user_name", serde_json::json!(user_name))
         .build()
-        .expect("建立令牌失敗")
+        .expect("建立令牌失敗");
+
+    let mut redis_database = Redis_Database::new(&redis_url).await
+        .map_err(|e| handle_errors::Error::CacheError(e))?;
+    let _: () = redis_database.connection.set_ex(user_name, token.clone(), 86400).await
+        .map_err(|e| handle_errors::Error::CacheError(e))?;
+    Ok(token)
 }
 
 pub fn verify_token(token: String) -> Result<Session, handle_errors::Error> {
