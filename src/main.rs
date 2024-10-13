@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 pub mod types;
 pub mod routes;
 mod store;
