@@ -1,7 +1,9 @@
-log_level="warn"
-database_host= "db"
-database_port = 5432
-database_name = "law"
-port = 9090
-database_username = "dbuser"
-database_password = "12345678"
+log_level="info"
+database_host= "autorack.proxy.rlwy.net"
+database_port = 10488
+database_name = "railway"
+port = 8080
+database_username = "postgres"
+database_password = "IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm"
+
+

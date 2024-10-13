@@ -7,7 +7,7 @@ use tracing::info;
 use warp::{http::StatusCode, Filter};
 use crate::store::Store;
 use crate::types::account::{Account, Session};
-use redis::AsyncCommands;
+
 
 /*
 pub async fn redis_connection() -> redis::aio::Connection {
