@@ -1,9 +1,5 @@
 log_level="info"
-database_host= "autorack.proxy.rlwy.net"
-database_port = 10488
-database_name = "railway"
 port = 8080
-database_username = "postgres"
-database_password = "IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm"
+
 
 

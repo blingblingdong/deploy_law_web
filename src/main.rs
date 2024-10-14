@@ -20,12 +20,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub struct Args {
     log_level: String,
-    database_host: String,
-    database_port: u16,
-    database_name:String,
     port: u16,
-    database_username: String,
-    database_password: String,
 }
 
 #[tokio::main]
@@ -34,6 +29,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .add_source(config::File::with_name("setup"))
         .build()
         .unwrap();
+
 
     let config = config
         .try_deserialize::<Args>()
@@ -50,9 +46,23 @@ async fn main() -> Result<(), handle_errors::Error> {
         .with_span_events(FmtSpan::CLOSE)
         .init();
 
+    // 初始化
+    dotenv::dotenv().ok();
+
+    if let Err(_) = std::env::var("DATABASE_PUBLIC_URL") {
+        panic!("找不到資料庫");
+    }
+
+    if let Err(_) = std::env::var("REDIS_PUBLIC_URL") {
+        panic!("找不到Redis");
+    }
+
+    if let Err(_) = std::env::var("PASETO_KEY") {
+        panic!("找不到Redis");
+    }
 
 
-    let db_url = format!("postgres://{}:{}@{}:{}/{}",config.database_username,config.database_password, config.database_host, config.database_port, config.database_name);
+    let db_url = std::env::var("DATABASE_PUBLIC_URL").unwrap();
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
     let store_filter = warp::any().map(move || store.clone());
@@ -60,10 +70,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
 
     let law_filter = warp::any().map(move || law.clone());
-
-    let redis_url = "redis://default:YezaUpCuecITVAKhENlObxOddVrcGRHH@autorack.proxy.rlwy.net:33895".to_string();
-    let redis_filter = warp::any().map(move || redis_url.clone());
-
 
 
     let cors = warp::cors()
@@ -236,14 +242,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(store_filter.clone())
         .and(warp::body::json())
-        .and(redis_filter.clone())
         .and_then(routes::authentication::login);
 
     let are_you_in_redis = warp::post()
         .and(warp::path("find_token_in_redis"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(redis_filter.clone())
         .and_then(routes::authentication::are_you_in_redis);
 
 

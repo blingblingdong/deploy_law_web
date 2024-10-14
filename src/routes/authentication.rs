@@ -12,7 +12,8 @@ use crate::types::account::{Account, Redis_Database, Session};
 
 
 // 以姓名確認token是否存在
-pub async fn are_you_in_redis(you: String, redis_url: String) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn are_you_in_redis(you: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
     let mut redis_database = Redis_Database::new(&redis_url).await
         .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
     let exists_or_not: Result<Option<String>, redis::RedisError> = redis_database.connection.get(&you).await;
@@ -67,7 +68,7 @@ pub async fn register(store: Store, account: Account) -> Result<impl warp::Reply
     1.2 若否，則回傳ArgonLibraryError
 */
 
-pub async fn login(store: Store, login: Account ,redis_url: String,) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn login(store: Store, login: Account) -> Result<impl warp::Reply, warp::Rejection> {
     match store.get_account(login.user_name).await {
         Ok(account) => match verify_password(
             &account.password,
@@ -75,7 +76,7 @@ pub async fn login(store: Store, login: Account ,redis_url: String,) -> Result<i
         ) {
             Ok(verified) => {
                 if verified {
-                    let token = issue_token(account.user_name.clone(), redis_url).await.unwrap();
+                    let token = issue_token(account.user_name.clone()).await.unwrap();
                     Ok(warp::reply::json(&token))
                 } else {
                     Err(warp::reject::custom(handle_errors::Error::WrongPassword))
@@ -98,15 +99,15 @@ fn verify_password(
 }
 
 async fn issue_token(
-    user_name: String,
-    redis_url: String,
+    user_name: String
 ) -> Result<String, handle_errors::Error> {
     let current_date_time = Utc::now();
     let dt = current_date_time + chrono::Duration::days(1);
+    let paseto_key = std::env::var("PASETO_KEY").unwrap();
 
     let token = paseto::tokens::PasetoBuilder::new()
         .set_encryption_key(
-            &Vec::from("RANDOM WORDS WINTER MACINTOSH PC".as_bytes())
+            &Vec::from(paseto_key.as_bytes())
         )
         .set_expiration(&dt)
         .set_not_before(&Utc::now())
@@ -114,6 +115,7 @@ async fn issue_token(
         .build()
         .expect("建立令牌失敗");
 
+    let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
     let mut redis_database = Redis_Database::new(&redis_url).await
         .map_err(|e| handle_errors::Error::CacheError(e))?;
     let _: () = redis_database.connection.set_ex(user_name, token.clone(), 86400).await
