@@ -282,7 +282,7 @@ impl crate::law {
         s.push_str("<div class='law-content'>");
         let chapter = format!("<div class='law-chapter'>{}</div>", self.format_chapter());
         s.push_str(&chapter);
-        let line: String = self.line.iter().enumerate()
+        let line: String = self.line.iter().enumerate().filter(|(_, s)| !s.is_empty())
             .map(|(i, s)| format!("<div class='law-line'>{}:{s}</div>",i+1)).collect();
         let lines = format!("<div class='law-lines'>{}</div>", line);
         s.push_str(&lines);
@@ -299,7 +299,7 @@ impl crate::law {
         s.push_str("<div class='law-content'>");
         let chapter = format!("<div class='law-chapter'>{}</div>", self.format_chapter());
         s.push_str(&chapter);
-        let line: String = self.line.iter().enumerate()
+        let line: String = self.line.iter().enumerate().filter(|(_, s)| !s.is_empty())
             .map(|(i, s)| format!("<div class='law-line'>{}:{s}</div>",i+1)).collect();
         let lines = format!("<div class='law-lines'>{}</div>", line);
         s.push_str(&lines);
@@ -318,7 +318,7 @@ impl crate::law {
         s.push_str("<div class='card-law-content'>");
         let chapter = format!("<div class='card-law-chapter'><div class='title'>{}</div><div class='num'>第{}條</div></div>", c, self.num);
         s.push_str(&chapter);
-        let line: String = self.line.iter().enumerate()
+        let line: String = self.line.iter().enumerate().filter(|(_, s)| !s.is_empty())
             .map(|(i, s)| format!("<div class='card-law-line'>{}:{s}</div>",i+1)).collect();
         s.push_str("<div class='card-law-note' id='card-law-note-{}' style='display: none;'>筆記</div>");
         let lines = format!("<div class='card-law-lines' id='card-law-lines-{}'>{}</div>",self.id, line);
@@ -364,12 +364,12 @@ impl crate::law {
 }
 
 
-pub fn write_law(path: String, vec: Vec<crate::law>) -> Result<(), Box<dyn Error>> {
+pub fn write_law(path: String, vec: Vec<crate::law>) -> std::result::Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(path)?;
     wtr.write_record(&["id", "num", "line", "href", "chapter"])?;
 
     for law in vec {
-        wtr.write_record(&[law.num, law.line.join("/"), law.href, law.chapter])?;
+        wtr.write_record(&[law.id, law.num, law.line.join("/"), law.href, law.chapter])?;
     }
     println!("寫入成功");
     wtr.flush()?;
@@ -379,7 +379,7 @@ pub fn write_law(path: String, vec: Vec<crate::law>) -> Result<(), Box<dyn Error
 pub async fn new_pool() -> PgPool {
     let db_pool = match PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgres://dbuser:12345678@localhost:5432/law").await {
+        .connect("").await {
         Ok(pool) => pool,
         Err(e) => panic!("sss {}", e),
     };

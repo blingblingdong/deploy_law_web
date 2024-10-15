@@ -51,9 +51,5 @@ pub fn new_write_law(path: String, vec: Vec<New_Law>) -> anyhow::Result<(), Box<
 
 #[tokio::main]
 async fn main()  {
-    let db_url = "postgres://dbuser:12345678@localhost:5432/law";
-    let store = Laws::from_pool(&db_url).await.unwrap();
-    let map = store.categories(0);
-    let x = map.keys().filter(|k| *k!= "").count();
-    println!("{x}");
+
 }

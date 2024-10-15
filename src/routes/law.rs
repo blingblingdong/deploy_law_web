@@ -45,8 +45,8 @@ pub async fn get_all_lines(cate: String, laws: Laws) -> Result<impl warp::Reply,
 
 pub async fn get_all_chapters(laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
     let mut s = String::new();
-    for key in laws.categories(0).keys() {
-        let format_key = format!("<li class='chapter-li'><a>{}</a></li>", key);
+    for key in laws.categories(0).keys().filter(|&chapter| chapter != "") {
+        let format_key = format!("<option value='{}'>", key);
         s.push_str(&format_key);
     }
     Ok(warp::reply::html(s))
@@ -54,6 +54,8 @@ pub async fn get_all_chapters(laws: Laws) -> Result<impl warp::Reply, warp::Reje
 
 pub async fn get_search_chapters(cate: String, laws: Laws)-> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
+    println!("{cate}");
+    info!("dddd");
     let n = laws.search_in_html_chapter(cate.to_string());
     Ok(warp::reply::html(n))
 }
