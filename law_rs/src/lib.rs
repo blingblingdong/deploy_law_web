@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::error::Error;
+use std::fmt::format;
 use std::fs::File;
 use csv::{Reader, Writer};
 use anyhow::Result;
@@ -38,41 +39,16 @@ impl crate::Laws {
 
     }
 
-    pub fn filter_by_cate(&self, cate: String, num: String) -> String {
-        let map = self.categories(0);
-        if let Some(laws) = map.get(&cate) {
-            let x: Vec<law>= laws.clone().lines.into_iter().filter(|x| x.num == num).collect();
-            if !x.is_empty() {
-                let name = &x.get(0).unwrap().num;
-                let chapter:Vec<&str> = x.get(0).unwrap().chapter.split("/").collect();
-                let l: String = x.get(0).unwrap().line.iter().enumerate()
-                    .map(|(i, s)| format!("{}:{s}\n",i+1)).collect();
-                format!("{}：{name}\n{l}", chapter.first().unwrap())
-            } else {
-                format!("查無項目，考慮下列類似選項")
-            }
-        } else {
-            format!("沒有這個項目，考慮下列類似選項")
+    // 用來數總共分為幾個章節
+    pub fn count_chapter(&self) -> usize {
+        let mut number: Vec<usize> = Vec::new();
+        for law in self.lines.clone() {
+            let count = law.chapter.split("/").count();
+            number.push(count);
         }
+        *number.iter().max().unwrap()
     }
 
-    pub fn filter_by_cate2(&self, cate: String, num: String) -> String {
-        let map = self.categories(0);
-        if let Some(laws) = map.get(&cate) {
-            let x: Vec<law>= laws.clone().lines.into_iter().filter(|x| x.num == num).collect();
-            if !x.is_empty() {
-                let name = &x.get(0).unwrap().num;
-                let chapter:Vec<&str> = x.get(0).unwrap().chapter.split("/").collect();
-                let l: String = x.get(0).unwrap().line.iter().enumerate()
-                    .map(|(i, s)| format!("<h3>{}:{s}</h3><br>",i+1)).collect();
-                format!("<h2>{}第{name}條：</h2><br>{l}", chapter.first().unwrap())
-            } else {
-                format!("<h2>查無項目，考慮下列類似選項</h2>")
-            }
-        } else {
-            format!("<h2>沒有這個項目，考慮下列類似選項</h2>")
-        }
-    }
 
     pub fn categories(&self, index:usize) -> IndexMap<String, crate::Laws> {
         let mut map = IndexMap::new();
@@ -93,6 +69,29 @@ impl crate::Laws {
         let mut html_text = String::new();
         l.print_all_chapter_html(1, chapter_num, &mut html_text);
         html_text
+    }
+
+    pub fn chapter_inputs_html(&self, father: String, level:usize, buffer: &mut String){
+        let map = self.categories(level);
+        for(name, laws) in &map {
+            let max = laws.count_chapter();
+            if level == 1{
+                println!("{name}");
+                let s= format!("<option value='{}'>", name);
+                buffer.push_str(&s);
+                if max > level + 1 {
+                    laws.chapter_inputs_html(name.clone(),level+1, buffer);
+                }
+            }else{
+                let father_and_child = format!("{father}/{name}");
+                println!("{father_and_child}");
+                let s = format!("<option value='{}'>", father_and_child);
+                buffer.push_str(&s);
+                if max > level + 1 {
+                    laws.chapter_inputs_html(father_and_child,level+1, buffer);
+                }
+            }
+        }
     }
 
     pub fn print_all_chapter_html(&self, level: usize, max_level: usize, html_text: &mut String) {
@@ -123,15 +122,14 @@ impl crate::Laws {
         }
     }
 
-    pub fn chapter_lines_in_html(&self, chapter1:String, num: String, chapter2: String) ->  String{
-        let binding = self.categories(0);
-        println!("{chapter1}");
-        let l = binding.get(&chapter1).expect("找無");
+    pub fn chapter_lines_in_html(&self, chapter1:String, chapter2: String) ->  String{
         let mut html_text = String::new();
-        let binding2 = l.categories(num.parse().unwrap());
-        let l2 = binding2.get(&chapter2).unwrap();
-        let chapter_num = l2.lines.first().unwrap().chapter.split("/").count();
-        l2.print_all_html(num.parse().unwrap(), chapter_num, &mut html_text);
+        let mut max_level : usize;
+        let num = chapter2.split("/").count();
+        if let Some(laws) = self.find_by_chapter(chapter1, chapter2){
+            max_level = laws.count_chapter() - 1;
+            laws.print_all_html(num, max_level, &mut html_text)
+        };
         html_text
     }
 
@@ -139,7 +137,7 @@ impl crate::Laws {
     pub fn all_in_html(&self, chapter:String) -> String {
         let binding = self.categories(0);
         let l = binding.get(&chapter).unwrap();
-        let chapter_num = self.lines.first().unwrap().chapter.split("/").count();
+        let chapter_num = l.count_chapter();
         let mut html_text = String::new();
         l.print_all_html(0, chapter_num, &mut html_text);
         html_text
@@ -153,31 +151,25 @@ impl crate::Laws {
         }else {
             let map = self.categories(level);
             for (s, l) in map {
-                let s = format!("<div 'in-chapter'><h2>{}</h2></div>", s);
+                let s = format!("<div class='in-chapter'><h3>{}</h3></div>", s);
                 html_text.push_str(&s);
                 l.print_all_html(level + 1, max_level, html_text);
             }
         }
     }
 
-    pub fn table_of_cate(&self) {
-        let chapter_num = self.lines.first().unwrap().chapter.split("/").count();
-        self.print_categories(0, chapter_num);
-    }
 
-    fn print_categories(&self, level: usize, max_level: usize) {
-        if level == max_level {
-            let _chapter = self.lines.first().unwrap().chapter.split("/").last().unwrap();
-            for l in &self.lines {
-                println!("{}", l.num);
-            }
-        }else {
-            let map = self.categories(level);
-            for (s, l) in map {
-                print!("{}", "--".repeat(level));
-                println!("{s}");
-                l.print_categories(level + 1, max_level);
-            }
+
+    pub fn find_by_chapter(&self, chapter1: String, chapter2: String) -> Option<Laws>{
+        let tp = format!("{chapter1}/{chapter2}");
+        if let Some(laws) = self.categories(0).get(&chapter1) {
+            let mut l = Laws::new();
+            let laws = laws.lines.iter()
+                .filter(|&law| law.chapter.contains(&tp))
+                .for_each(|law| l.lines.push(law.clone()));
+            Some(l)
+        } else {
+            None
         }
     }
 
@@ -277,19 +269,20 @@ impl crate::law {
     }
 
     pub fn law_block(&self) -> String {
+        let chapter: Vec<&str> = self.chapter.split("/").collect();
+        let c = chapter.first().unwrap();
         let mut s = String::new();
-        s.push_str("<div class='container'><div class='box1'>");
-        s.push_str("<div class='law-content'>");
-        let chapter = format!("<div class='law-chapter'>{}</div>", self.format_chapter());
-        s.push_str(&chapter);
         let line: String = self.line.iter().enumerate().filter(|(_, s)| !s.is_empty())
-            .map(|(i, s)| format!("<div class='law-line'>{}:{s}</div>",i+1)).collect();
-        let lines = format!("<div class='law-lines'>{}</div>", line);
-        s.push_str(&lines);
-        s.push_str("</div></div>");
-        let add_but = format!("<div class='box3'><button class='add-law' id='add-{}'>新增至</button></div>", self.id);
-        s.push_str(&add_but);
-        s.push_str("</div>");
+            .map(|(i, s)| format!("<li class='law-block-line'>{s}</li>")).collect();
+        let lines = format!("<ul class='law-block-lines'>{}</div>", line);
+        let r = format!("<div class='law-content-area'>
+                <div class='top-search-law-title' style='display: flex'>
+                    <p>第{}條<br>章節：{}</p>
+                    <div><div class='top-law_search-add-area'><button class='add-law normal-button' id='add-{}-{}'>新增至</button></div></div>
+                </div>
+                {}
+            </div>",self.num, self.chapter,c, self.num, lines);
+        s.push_str(&r);
         s
     }
 

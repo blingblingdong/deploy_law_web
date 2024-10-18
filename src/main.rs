@@ -154,14 +154,19 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(law_filter.clone())
         .and_then(routes::record::get_records_to_laws);
 
-    let get_lines_by_chapter = warp::get()
+    let get_lines_by_chapter = warp::post()
         .and(warp::path("lines_by_chapter"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::law::get_lines_by_chapter);
+
+    let get_input_chapter = warp::get()
+        .and(warp::path("input_chapter"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
         .and(law_filter.clone())
-        .and_then(routes::law::get_lines_by_chapter);
+        .and_then(routes::law::get_input_chapter);
 
     let update_note = warp::put()
         .and(warp::path("update_note"))
@@ -257,6 +262,7 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(get_input_chapter)
         .or(login)
         .or(are_you_in_redis)
         .or(update_css)

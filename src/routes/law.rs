@@ -52,6 +52,16 @@ pub async fn get_all_chapters(laws: Laws) -> Result<impl warp::Reply, warp::Reje
     Ok(warp::reply::html(s))
 }
 
+pub async fn get_input_chapter(cate1: String, laws: Laws)-> Result<impl warp::Reply, warp::Rejection> {
+    let cate1 = percent_decode_str(&cate1).decode_utf8_lossy();
+    let mut buffer = String::new();
+    let cate = cate1.to_string();
+    if let Some(laws) = laws.categories(0).get(&cate){
+        let _ = laws.chapter_inputs_html("".to_string(), 1, &mut buffer);
+    }
+    Ok(warp::reply::html(buffer))
+}
+
 pub async fn get_search_chapters(cate: String, laws: Laws)-> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     println!("{cate}");
@@ -60,12 +70,13 @@ pub async fn get_search_chapters(cate: String, laws: Laws)-> Result<impl warp::R
     Ok(warp::reply::html(n))
 }
 
-pub async fn get_lines_by_chapter(chapter1: String, num: String, chapter2: String, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
-    let chapter1 = percent_decode_str(&chapter1).decode_utf8_lossy();
-    let num = percent_decode_str(&num).decode_utf8_lossy();
-    let chapter2 = percent_decode_str(&chapter2).decode_utf8_lossy();
-    println!("{chapter1}{num}{chapter2}");
-    let res = laws;
-    let s = res.chapter_lines_in_html(chapter1.into_owned(), num.into_owned(), chapter2.into_owned());
+#[derive(Deserialize, Serialize)]
+pub struct Chapter {
+    chapter1: String,
+    chapter2: String,
+}
+
+pub async fn get_lines_by_chapter(laws: Laws, chapter: Chapter,) -> Result<impl warp::Reply, warp::Rejection> {
+    let s = laws.chapter_lines_in_html(chapter.chapter1, chapter.chapter2);
     Ok(warp::reply::html(s))
 }
