@@ -1,9 +1,8 @@
 #[allow(unused_imports)]
 use std::error::Error;
-use anyhow::bail;
 use csv::Writer;
 use serde::Deserialize;
-use law_rs::{law, new_pool, Laws};
+use law_rs::{law, Laws};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, serde::Deserialize, Clone)]

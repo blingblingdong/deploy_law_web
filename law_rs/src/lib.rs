@@ -1,6 +1,8 @@
+use std::alloc::Layout;
 #[allow(unused_imports)]
 use std::error::Error;
-use std::fmt::format;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use csv::{Reader, Writer};
 use anyhow::Result;
@@ -8,6 +10,35 @@ use indexmap::{IndexMap};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::{PgPoolOptions, PgPool, PgRow};
 use sqlx::{Row};
+
+#[derive(Debug)]
+pub enum LawError {
+    NOThisChapter,
+    CsvReadingError(Box<dyn Error>),
+    SQLError(sqlx::Error),
+}
+
+impl fmt::Display for LawError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            LawError::NOThisChapter => write!(f, "Chapter not found"),
+            LawError::CsvReadingError(ref err) => write!(f, "CSV reading error: {}", err),
+            LawError::SQLError(ref err) => write!(f, "SQL error: {}", err),
+        }
+    }
+}
+
+
+
+impl Error for LawError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match *self {
+            LawError::NOThisChapter => None,
+            LawError::CsvReadingError(ref err) => Some(err.as_ref()),
+            LawError::SQLError(ref err) => Some(err),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Laws {
@@ -21,22 +52,37 @@ impl crate::Laws {
         }
     }
 
-    pub fn from_csv(path:String) -> Self{
+    pub fn from_csv(path:String) -> Result<Laws, LawError> {
         let mut vec = Vec::new();
-        let file = File::open(path).expect("打開不能");
+        let file = File::open(path).
+            map_err(|e| LawError::CsvReadingError(e.into()))?;
         let mut rdr = Reader::from_reader(file);
 
         for result in rdr.deserialize() {
-            // Notice that we need to provide a type hint for automatic
-            // deserialization.
-            let record: crate::law = result.unwrap();
+            let record: crate::law = result.
+                map_err(|e| LawError::CsvReadingError(e.into()))?;;
             vec.push(record);
         }
 
-        crate::Laws {
-            lines:vec
-        }
+        let laws = crate::Laws {lines:vec};
+        Ok(laws)
+    }
 
+    pub fn find_by_text(&self, chapter: String, text: String)-> Result<Self, LawError> {
+        match self.categories(0).get(&chapter) {
+            Some(laws) => {
+                let mut l = Laws::new();
+                for law in laws.lines.clone() {
+                    law.line.iter()
+                        .filter(|law| law.contains(&text))
+                        .for_each(|x| l.lines.push(law.clone()));
+                }
+                Ok(l)
+            },
+            _ => {
+                Err(LawError::NOThisChapter)
+            }
+        }
     }
 
     // 用來數總共分為幾個章節
@@ -62,15 +108,18 @@ impl crate::Laws {
         map
     }
 
-    pub fn search_in_html_chapter(&self, chapter: String) -> String {
+
+    // 打印出html格式的章節
+    pub fn search_in_html_chapter(&self, chapter: String) -> Result<String, LawError> {
         let binding = self.categories(0);
-        let l = binding.get(&chapter).unwrap();
-        let chapter_num = self.lines.first().unwrap().chapter.split("/").count();
+        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+        let chapter_num = self.count_chapter();
         let mut html_text = String::new();
         l.print_all_chapter_html(1, chapter_num, &mut html_text);
-        html_text
+        Ok(html_text)
     }
 
+    // 打印出html格式的章節選擇
     pub fn chapter_inputs_html(&self, father: String, level:usize, buffer: &mut String){
         let map = self.categories(level);
         for(name, laws) in &map {
@@ -122,56 +171,66 @@ impl crate::Laws {
         }
     }
 
-    pub fn chapter_lines_in_html(&self, chapter1:String, chapter2: String) ->  String{
+    pub fn chapter_lines_in_html(&self, chapter1:String, chapter2: String) ->  Result<String, LawError>{
         let mut html_text = String::new();
         let mut max_level : usize;
         let num = chapter2.split("/").count();
-        if let Some(laws) = self.find_by_chapter(chapter1, chapter2){
-            max_level = laws.count_chapter() - 1;
-            laws.print_all_html(num, max_level, &mut html_text)
-        };
-        html_text
+        match self.find_by_chapter(chapter1, chapter2) {
+            Ok(laws) => {
+                max_level = laws.count_chapter() - 1;
+                laws.print_all_html(num,&mut html_text);
+                Ok(html_text)
+            },
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
 
-    pub fn all_in_html(&self, chapter:String) -> String {
+    pub fn all_in_html(&self, chapter:String) -> Result<String, LawError> {
         let binding = self.categories(0);
-        let l = binding.get(&chapter).unwrap();
+        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
         let chapter_num = l.count_chapter();
         let mut html_text = String::new();
-        l.print_all_html(0, chapter_num, &mut html_text);
-        html_text
+        l.print_all_html(0, &mut html_text);
+        Ok(html_text)
     }
 
-    pub fn print_all_html(&self, level: usize, max_level: usize, html_text: &mut String) {
-        if level == max_level {
-            for l in &self.lines {
-                html_text.push_str(&l.law_block());
-            }
-        }else {
-            let map = self.categories(level);
-            for (s, l) in map {
-                let s = format!("<div class='in-chapter'><h3>{}</h3></div>", s);
-                html_text.push_str(&s);
-                l.print_all_html(level + 1, max_level, html_text);
-            }
-        }
+    pub fn print_all_html(&self, level: usize, html_text: &mut String) {
+        let map1 = self.categories(level);
+        map1.iter()
+            .for_each(|(name, laws)| {
+                if laws.count_chapter()-1 > level{
+                    let chapter = format!("<div class='in-chapter'><h3>{}</h3></div>", name);
+                    html_text.push_str(&chapter);
+                    laws.print_all_html(level + 1, html_text);
+                } else {
+                    let chapter = format!("<div class='in-chapter'><h3>{}</h3></div>", name);
+                    html_text.push_str(&chapter);
+                    laws.lines.iter().map(|law| law.law_block().clone()).for_each(|law_block| html_text.push_str(&law_block))
+                }
+            })
     }
 
 
 
-    pub fn find_by_chapter(&self, chapter1: String, chapter2: String) -> Option<Laws>{
+    pub fn find_by_chapter(&self, chapter1: String, chapter2: String) -> Result<Laws, LawError> {
         let tp = format!("{chapter1}/{chapter2}");
-        if let Some(laws) = self.categories(0).get(&chapter1) {
-            let mut l = Laws::new();
-            let laws = laws.lines.iter()
-                .filter(|&law| law.chapter.contains(&tp))
-                .for_each(|law| l.lines.push(law.clone()));
-            Some(l)
-        } else {
-            None
+        match self.categories(0).get(&chapter1) {
+            Some(laws) => {
+                let mut l = Laws::new();
+                let laws = laws.lines.iter()
+                    .filter(|&law| law.chapter.contains(&tp))
+                    .for_each(|law| l.lines.push(law.clone()));
+                Ok(l)
+            },
+            _ => {
+                Err(LawError::NOThisChapter)
+            }
         }
     }
+
 
     pub async fn from_pool(db_url: &str) -> Result<Self, sqlx::Error> {
         let mut attempts = 0;

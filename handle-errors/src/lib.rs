@@ -23,7 +23,7 @@ pub enum Error {
     CannotDecryptToken,
     Unauthorized,
     TokenNotFound,
-    CacheError(RedisError)
+    CacheError(RedisError),
 }
 
 impl std::fmt::Display for Error {

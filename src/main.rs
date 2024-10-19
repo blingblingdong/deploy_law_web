@@ -10,7 +10,7 @@ use warp::{http::Method, Filter};
 use law_rs::Laws;
 use tracing_subscriber::fmt::format::FmtSpan;
 use crate::routes::file::{delete_file, get_content_markdown, insert_content, update_content};
-use crate::routes::law::get_on_law;
+use crate::routes::law::{get_laws_by_text, get_on_law};
 use crate::routes::record::{get_dir_for_pop, update_note};
 use crate::store::Store;
 use config::Config;
@@ -122,6 +122,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(law_filter.clone())
         .and_then(routes::law::get_all_lines);
+
+    let get_laws_by_text = warp::get()
+        .and(warp::path("laws_by_text"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and_then(routes::law::get_laws_by_text);
 
     let get_search_chapters = warp::get()
         .and(warp::path("search"))
@@ -284,6 +292,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(add_file)
         .or(update_content)
         .or(delete_file)
+        .or(get_laws_by_text)
         .with(warp::trace::request())// 提供靜態文件
         .with(cors)
         .recover(return_error);
