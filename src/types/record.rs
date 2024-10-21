@@ -22,6 +22,8 @@ pub struct LawRecord {
 
 
 
+
+
 impl LawRecord {
     pub fn new(chapter: String, num: String, user_name: String, directory: String) -> Self {
         let id = format!("{}-{}-{}-{}", user_name, directory, chapter, num);

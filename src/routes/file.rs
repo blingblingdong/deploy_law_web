@@ -39,7 +39,7 @@ pub async fn get_content_html(id: String, stroe: Store) -> Result<impl warp::Rep
             let parser = Parser::new_ext(&file.content, Options::all());
             let mut html_output = String::new();
             html::push_html(&mut html_output, parser);
-            let json_file = File { id: file.id, content: html_output, css: file.css, user_name: file.user_name, directory: file.directory};
+            let json_file = File { id: file.id, content: html_output, css: file.css, user_name: file.user_name, directory: file.directory, file_name: file.file_name};
             Ok(warp::reply::json(&json_file))
         },
         Err(e) => Err(warp::reject::custom(e))
@@ -80,7 +80,18 @@ pub async fn update_css(id: String, stroe: Store, css: crate::routes::file::Upda
     Ok(warp::reply::json(&res))
 }
 
-
+pub async fn get_file_list(user_name: String, dir: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut s = String::new();
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let dir = percent_decode_str(&dir).decode_utf8_lossy();
+    let files = stroe.get_file_user(&user_name.to_owned(), &dir.to_owned()).await?;
+    files.vec_files.iter()
+        .map(|file| {format!("<li class='the-file'><a>{}<a></li>", file.file_name)})
+        .for_each(|str| {
+            s.push_str(&str);
+        });
+    Ok(warp::reply::html(s))
+}
 
 
 

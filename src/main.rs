@@ -11,11 +11,12 @@ use law_rs::Laws;
 use tracing_subscriber::fmt::format::FmtSpan;
 use crate::routes::file::{delete_file, get_content_markdown, insert_content, update_content};
 use crate::routes::law::{get_laws_by_text, get_on_law};
-use crate::routes::record::{get_dir_for_pop, update_note};
+use crate::routes::record::{update_note};
 use crate::store::Store;
 use config::Config;
 use std::env;
 use serde::{Deserialize, Serialize};
+
 
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub struct Args {
@@ -81,9 +82,15 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path("all_dir"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(routes::authentication::auth())
         .and(store_filter.clone())
-        .and_then(routes::record::get_dir);
+        .and_then(routes::directory::get_dir_by_user);
+
+    let get_file_list = warp::get()
+        .and(warp::path("file_list"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and_then(routes::file::get_file_list);
 
     let delete_dir_by_name = warp::delete()
         .and(warp::path("delete_dir_by_name"))
@@ -97,7 +104,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::param::<String>())
         .and(warp::path::end())
         .and(store_filter.clone())
-        .and_then(routes::record::get_dir_for_pop);
+        .and_then(routes::directory::get_dir_for_pop);
 
     let get_table = warp::get()
         .and(warp::path("questions"))
@@ -192,6 +199,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::file::add_file);
 
+    let add_dir = warp::post()
+        .and(warp::path("dir"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::directory::add_dir);
+
     let update_content = warp::put()
         .and(warp::path("file"))
         .and(warp::path::param::<String>())
@@ -272,8 +286,10 @@ async fn main() -> Result<(), handle_errors::Error> {
     let routes = get_all_lines
         .or(get_input_chapter)
         .or(login)
+        .or(add_dir)
         .or(are_you_in_redis)
         .or(update_css)
+        .or(get_file_list)
         .or(insert_content)
         .or(add_record)
         .or(get_table)

@@ -47,12 +47,11 @@ pub async fn get_records_to_laws(user_name: String, directory: String, stroe: St
     let mut s = String::new();
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
     let directory = percent_decode_str(&directory).decode_utf8_lossy();
-    let res =stroe.get_by_user(&user_name.to_owned()).await?;
-    let map = res.get_by_dir(directory.to_string())?;
-    if map.vec_record.len() == 1 {
+    let res =stroe.get_by_user(&user_name.to_owned(), &directory.to_owned()).await?;
+    if res.vec_record.len() == 1 {
         s.push_str("<h2>尚無加入任何法條</h2>");
     } else {
-        for (law, note) in map.get_laws(laws) {
+        for (law, note) in res.get_laws(laws) {
             let block = law.law_block_delete(note);
             s.push_str(&block);
         }
@@ -68,6 +67,7 @@ pub async fn get_records_to_laws(user_name: String, directory: String, stroe: St
     Ok(warp::reply::html(s))
 }
 
+/*
 pub async fn get_dir(user_name: String,session: Session,stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let mut s = String::new();
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
@@ -85,22 +85,9 @@ pub async fn get_dir(user_name: String,session: Session,stroe: Store) -> Result<
     }
 
 }
+ */
 
-pub async fn get_dir_for_pop(user_name: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
-    let mut s = String::new();
-    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
-    println!("{user_name}");
-    let records = stroe.get_by_user(&user_name.to_owned()).await?;
-    let map = records.categorize_by_dir()?;
-    map.keys()
-        .map(|k| {format!("<div class='option'><input type='checkbox' id='option-{}'>
-                            <label for='option-{}'>{}</label></div>", k, k, k)})
-        .for_each(|str| {
-            println!("{str}");
-            s.push_str(&str);
-        });
-    Ok(warp::reply::html(s))
-}
+
 
 pub async fn delete_dir_by_name(dir: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let dir = percent_decode_str(&dir).decode_utf8_lossy();

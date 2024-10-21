@@ -4,6 +4,7 @@ use chrono::{Duration, Utc};
 use paseto::v1::local_paseto;
 use rand::Rng;
 use redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 use warp::{http::StatusCode, Filter};
 use crate::store::Store;
@@ -59,6 +60,19 @@ pub async fn register(store: Store, account: Account) -> Result<impl warp::Reply
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Account_with_Token {
+    pub user_name: String,
+    pub email: String,
+    pub token: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Login {
+    pub email: String,
+    pub password: String,
+}
+
 /*
 簡要流程：
 1.需要一個Account結構的json，並用user_name來比對數據庫中有沒有相同的user_name
@@ -68,8 +82,8 @@ pub async fn register(store: Store, account: Account) -> Result<impl warp::Reply
     1.2 若否，則回傳ArgonLibraryError
 */
 
-pub async fn login(store: Store, login: Account) -> Result<impl warp::Reply, warp::Rejection> {
-    match store.get_account(login.user_name).await {
+pub async fn login(store: Store, login: Login) -> Result<impl warp::Reply, warp::Rejection> {
+    match store.get_account(login.email).await {
         Ok(account) => match verify_password(
             &account.password,
             login.password.as_bytes()
@@ -77,7 +91,9 @@ pub async fn login(store: Store, login: Account) -> Result<impl warp::Reply, war
             Ok(verified) => {
                 if verified {
                     let token = issue_token(account.user_name.clone()).await.unwrap();
-                    Ok(warp::reply::json(&token))
+                    let account_with_token =
+                        Account_with_Token{user_name: account.user_name.clone(), email: account.email.clone(), token };
+                    Ok(warp::reply::json(&account_with_token))
                 } else {
                     Err(warp::reject::custom(handle_errors::Error::WrongPassword))
                 }

@@ -4,6 +4,7 @@ use csv::Writer;
 use serde::Deserialize;
 use law_rs::{law, Laws};
 
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct New_Law {
@@ -51,5 +52,9 @@ pub fn new_write_law(path: String, vec: Vec<New_Law>) -> anyhow::Result<(), Box<
 
 #[tokio::main]
 async fn main()  {
-
+    let binding = "下列土地不得為私有：一、海岸一定限度內之土地/二、天然形成之湖澤而為公共需用者，及其沿岸一定限度內之土地".to_string();
+    let x: Vec<&str> = binding.split(|c| c == '：' || c == '/').collect();
+    for i in x.clone() {
+        println!("{i}");
+    }
 }

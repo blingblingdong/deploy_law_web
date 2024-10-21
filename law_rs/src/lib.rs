@@ -1,4 +1,5 @@
 use std::alloc::Layout;
+use std::collections::HashSet;
 #[allow(unused_imports)]
 use std::error::Error;
 use std::fmt;
@@ -304,7 +305,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    Ok(s.split('/').map(|s| s.to_string()).collect())
+    Ok(s.split(|c| c == '：' || c == '/').map(|s| s.to_string()).collect())
 }
 
 
@@ -327,12 +328,29 @@ impl crate::law {
         format!("{}第{}條", c, self.num)
     }
 
+    fn indent(c: char) -> bool {
+        let mut set = HashSet::new();
+        set.extend( ['一','二','三','四','五','六','七','八','九','十', '第']);
+        set.contains(&c)
+    }
+
     pub fn law_block(&self) -> String {
         let chapter: Vec<&str> = self.chapter.split("/").collect();
         let c = chapter.first().unwrap();
         let mut s = String::new();
-        let line: String = self.line.iter().enumerate().filter(|(_, s)| !s.is_empty())
-            .map(|(i, s)| format!("<li class='law-block-line'>{s}</li>")).collect();
+        let mut s2 = String::new();
+        self.line.iter().for_each(|x| {
+            s2.push_str(x);
+            s2.push_str("/");
+        });
+        let line: String = s2.split(|c| c == '：' || c == '/').filter(|(s)| !s.is_empty())
+            .map(|(s)| {
+                if s.starts_with(Self::indent){
+                    format!("<div class='law-indent'>{s}</div>")
+                } else {
+                    format!("<li class='law-block-line'>{s}</li>")
+                }
+        }).collect();
         let lines = format!("<ul class='law-block-lines'>{}</div>", line);
         let r = format!("<div class='law-content-area'>
                 <div class='top-search-law-title' style='display: flex'>
