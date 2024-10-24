@@ -44,6 +44,8 @@ FROM alpine
 # 設定工作目錄
 WORKDIR /app
 
+RUN apk add --no-cache sqlite
+
 # 從建置階段的容器中複製編譯好的執行檔和其他必要檔案
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web /app/
 COPY --from=builder /app/setup.toml /app/
