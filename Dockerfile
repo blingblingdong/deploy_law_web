@@ -35,10 +35,16 @@ FROM scratch
 # 設定工作目錄
 WORKDIR /app
 
+# 在 builder 階段，列出目標目錄中的文件以確保文件存在
+RUN ls -la /app/target/x86_64-unknown-linux-musl/release/
+
+
 # 從建置階段的容器中複製編譯好的執行檔和其他必要檔案
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
-COPY --from=builder /app/setup.toml ./
-COPY --from=builder /app/mydatabase.db ./
+# 從 builder 容器複製可執行文件和其他必要文件到 scratch 容器
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web /app/law_web
+COPY --from=builder /app/setup.toml /app/setup.toml
+COPY --from=builder /app/mydatabase.db /app/mydatabase.db
+
 
 # 設定容器啟動時執行的命令
 CMD ["/app/law_web"]
