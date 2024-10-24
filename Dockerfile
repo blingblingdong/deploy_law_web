@@ -42,9 +42,9 @@ RUN chmod +x /app/target/x86_64-unknown-linux-musl/release/law_web
 # 使用 scratch 基礎映像來創建最終映像
 FROM alpine
 WORKDIR /app
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web /app/law_web
-COPY --from=builder /app/setup.toml /app/
-COPY --from=builder /app/mydatabase.db /app/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
+COPY --from=builder /app/setup.toml ./
+COPY --from=builder /app/mydatabase.db ./
 CMD ["/app/law_web"]
 
 
