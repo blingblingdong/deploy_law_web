@@ -68,7 +68,7 @@ async fn main() -> Result<(), handle_errors::Error> {
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
     let store_filter = warp::any().map(move || store.clone());
-    let law = Laws::from_lite_pool("mydatabase.db").await
+    let law = Laws::from_pool(&db_url).await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
 
     let laws_shared = Arc::new(law);
