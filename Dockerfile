@@ -29,6 +29,16 @@ RUN ls -l /usr/include/openssl
 # 使用 musl 進行靜態編譯
 RUN cargo build --target x86_64-unknown-linux-musl --release
 
+# 檢查可執行文件是否存在
+RUN ls -la /app/target/x86_64-unknown-linux-musl/release/
+
+# 檢查可執行文件是否為靜態連接
+RUN ldd /app/target/x86_64-unknown-linux-musl/release/law_web || echo "Static binary"
+
+# 確保可執行文件具有執行權限
+RUN chmod +x /app/target/x86_64-unknown-linux-musl/release/law_web
+
+
 # 使用 scratch 基礎映像來創建最終映像
 FROM scratch
 
