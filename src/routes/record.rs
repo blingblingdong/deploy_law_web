@@ -1,3 +1,4 @@
+use std::sync::Arc;
 #[allow(unused_imports)]
 use percent_encoding::percent_decode_str;
 use serde::Deserialize;
@@ -43,7 +44,7 @@ pub async fn update_note(id: String, session: Session, store: Store, note: NoteU
 
 
 
-pub async fn get_records_to_laws(user_name: String, directory: String, stroe: Store, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_records_to_laws(user_name: String, directory: String, stroe: Store, laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let mut s = String::new();
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
     let directory = percent_decode_str(&directory).decode_utf8_lossy();

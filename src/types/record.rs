@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::string::String;
+use std::sync::Arc;
 use law_rs::*;
 use sqlx::postgres::{PgPoolOptions, PgPool, PgRow};
 use sqlx::{Row};
@@ -68,7 +69,7 @@ impl LawRecords {
         table
     }
 
-    pub  fn get_laws(&self, laws:Laws) -> Vec<(law, String)> {
+    pub  fn get_laws(&self, laws: Arc<Laws>) -> Vec<(law, String)> {
         let res = self.vec_record.clone();
         let res: Vec<LawRecord> = res.iter().filter(|&x| x.chapter != "創建").map(|x| x.clone()).collect();
         let map = laws.categories(0);

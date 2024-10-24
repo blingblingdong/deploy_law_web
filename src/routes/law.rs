@@ -1,3 +1,4 @@
+use std::sync::Arc;
 #[allow(unused_imports)]
 use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
@@ -5,7 +6,7 @@ use law_rs::{law, Laws};
 use tracing::{instrument, info};
 
 
-pub async fn get_table(cate: String, num: String, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_table(cate: String, num: String, laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     let num = percent_decode_str(&num).decode_utf8_lossy();
     info!("獲取{cate}第{num}條");
@@ -24,7 +25,7 @@ pub struct OneLaw {
     lines: Vec<String>
 }
 
-pub async fn get_on_law(cate: String, num: String, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_on_law(cate: String, num: String, laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     let num = percent_decode_str(&num).decode_utf8_lossy();
     info!("獲取{cate}第{num}條");
@@ -37,7 +38,7 @@ pub async fn get_on_law(cate: String, num: String, laws: Laws) -> Result<impl wa
     }
 }
 
-pub async fn get_all_lines(cate: String, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_all_lines(cate: String, laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     match laws.all_in_html(cate.to_string()){
         Ok(n) => {
@@ -49,7 +50,7 @@ pub async fn get_all_lines(cate: String, laws: Laws) -> Result<impl warp::Reply,
     }
 }
 
-pub async fn get_all_chapters(laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_all_chapters(laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let mut s = String::new();
     for key in laws.categories(0).keys().filter(|&chapter| chapter != "") {
         let format_key = format!("<option value='{}'>", key);
@@ -58,7 +59,7 @@ pub async fn get_all_chapters(laws: Laws) -> Result<impl warp::Reply, warp::Reje
     Ok(warp::reply::html(s))
 }
 
-pub async fn get_input_chapter(cate1: String, laws: Laws)-> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_input_chapter(cate1: String, laws: Arc<Laws>)-> Result<impl warp::Reply, warp::Rejection> {
     let cate1 = percent_decode_str(&cate1).decode_utf8_lossy();
     let mut buffer = String::new();
     let cate = cate1.to_string();
@@ -72,7 +73,7 @@ pub async fn get_input_chapter(cate1: String, laws: Laws)-> Result<impl warp::Re
     Ok(warp::reply::html(buffer))
 }
 
-pub async fn get_search_chapters(cate: String, laws: Laws)-> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_search_chapters(cate: String, laws: Arc<Laws>)-> Result<impl warp::Reply, warp::Rejection> {
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     let n = laws.search_in_html_chapter(cate.to_string());
     if n.is_ok() {
@@ -88,7 +89,7 @@ pub struct Chapter {
     chapter2: String,
 }
 
-pub async fn get_lines_by_chapter(laws: Laws, chapter: Chapter,) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_lines_by_chapter(laws: Arc<Laws>, chapter: Chapter,) -> Result<impl warp::Reply, warp::Rejection> {
     let s = laws.chapter_lines_in_html(chapter.chapter1, chapter.chapter2);
     if s.is_ok() {
         Ok(warp::reply::html(s.unwrap()))
@@ -97,7 +98,7 @@ pub async fn get_lines_by_chapter(laws: Laws, chapter: Chapter,) -> Result<impl 
     }
 }
 
-pub async fn get_laws_by_text(chapter: String, text: String, laws: Laws) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_laws_by_text(chapter: String, text: String, laws: Arc<Laws>) -> Result<impl warp::Reply, warp::Rejection> {
     let chapter = percent_decode_str(&chapter).decode_utf8_lossy();
     let text = percent_decode_str(&text).decode_utf8_lossy();
     match laws.find_by_text(chapter.to_string(), text.to_string()) {

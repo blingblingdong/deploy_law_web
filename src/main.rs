@@ -15,6 +15,7 @@ use crate::routes::record::{update_note};
 use crate::store::Store;
 use config::Config;
 use std::env;
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 
@@ -67,10 +68,13 @@ async fn main() -> Result<(), handle_errors::Error> {
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
     let store_filter = warp::any().map(move || store.clone());
-    let law = Laws::from_pool(&db_url).await
+    let law = Laws::from_lite_pool("mydatabase.db").await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
 
-    let law_filter = warp::any().map(move || law.clone());
+    let laws_shared = Arc::new(law);
+
+    // 創建warp的filter來重用已加載的laws
+    let law_filter = warp::any().map(move || laws_shared.clone());
 
 
     let cors = warp::cors()

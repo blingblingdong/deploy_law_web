@@ -11,6 +11,11 @@ use indexmap::{IndexMap};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::{PgPoolOptions, PgPool, PgRow};
 use sqlx::{Row};
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions,SqliteRow};
+
+
+
+
 
 #[derive(Debug)]
 pub enum LawError {
@@ -53,7 +58,59 @@ impl crate::Laws {
         }
     }
 
-    pub fn from_csv(path:String) -> Result<Laws, LawError> {
+    pub async fn from_lite_pool(db_url: &str) -> Result<Self, sqlx::Error> {
+        let mut attempts = 0;
+        let max_attempts = 5;
+
+        let db_pool = match SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect(db_url).await {
+            Ok(pool) => pool,
+            Err(e) => {
+                eprintln!("Failed to connect to the database: {}. Retry in 5 seconds...", e);
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                attempts += 1;
+                return Err(sqlx::Error::WorkerCrashed)
+            },
+        };
+        match sqlx::query("SELECT * FROM law
+        ORDER BY created_at ASC;")
+            .map(|row: SqliteRow|       {
+                let line: String = row.get("line");
+                let lines = line.split('/').map(String::from).collect::<Vec<String>>();
+                law {
+                    id: row.get("id"),
+                    num: row.get("num"),
+                    line: lines,
+                    href: row.get("href"),
+                    chapter: row.get("chapter")
+                }
+            })
+            .fetch_all(&db_pool)
+            .await {
+            Ok(lines) => Ok(Laws { lines }),
+            Err(_e) => Err(sqlx::Error::WorkerCrashed)
+        }
+    }
+
+    pub async fn populate_sqlite_with_laws(&self, sqlite_path: &str) -> Result<(), sqlx::Error> {
+        let pool = SqlitePool::connect(sqlite_path).await?;
+        for law in &self.lines {
+            sqlx::query("INSERT INTO law (id, num, line, href, chapter) VALUES (?, ?, ?, ?, ?)")
+                .bind(&law.id)
+                .bind(&law.num)
+                .bind(&law.line.join("/")) // 假設 line 是 Vec<String>
+                .bind(&law.href)
+                .bind(&law.chapter)
+                .execute(&pool)
+                .await?;
+        }
+        Ok(())
+    }
+
+
+
+    pub fn from_csv(path: String) -> Result<Laws, LawError> {
         let mut vec = Vec::new();
         let file = File::open(path).
             map_err(|e| LawError::CsvReadingError(e.into()))?;
@@ -65,11 +122,11 @@ impl crate::Laws {
             vec.push(record);
         }
 
-        let laws = crate::Laws {lines:vec};
+        let laws = crate::Laws { lines: vec };
         Ok(laws)
     }
 
-    pub fn find_by_text(&self, chapter: String, text: String)-> Result<Self, LawError> {
+    pub fn find_by_text(&self, chapter: String, text: String) -> Result<Self, LawError> {
         match self.categories(0).get(&chapter) {
             Some(laws) => {
                 let mut l = Laws::new();
@@ -97,7 +154,7 @@ impl crate::Laws {
     }
 
 
-    pub fn categories(&self, index:usize) -> IndexMap<String, crate::Laws> {
+    pub fn categories(&self, index: usize) -> IndexMap<String, crate::Laws> {
         let mut map = IndexMap::new();
         for law in &self.lines {
             let name_vec = law.chapter.split('/').collect::<Vec<&str>>();
@@ -121,24 +178,24 @@ impl crate::Laws {
     }
 
     // 打印出html格式的章節選擇
-    pub fn chapter_inputs_html(&self, father: String, level:usize, buffer: &mut String){
+    pub fn chapter_inputs_html(&self, father: String, level: usize, buffer: &mut String) {
         let map = self.categories(level);
-        for(name, laws) in &map {
+        for (name, laws) in &map {
             let max = laws.count_chapter();
-            if level == 1{
+            if level == 1 {
                 println!("{name}");
-                let s= format!("<option value='{}'>", name);
+                let s = format!("<option value='{}'>", name);
                 buffer.push_str(&s);
                 if max > level + 1 {
-                    laws.chapter_inputs_html(name.clone(),level+1, buffer);
+                    laws.chapter_inputs_html(name.clone(), level + 1, buffer);
                 }
-            }else{
+            } else {
                 let father_and_child = format!("{father}/{name}");
                 println!("{father_and_child}");
                 let s = format!("<option value='{}'>", father_and_child);
                 buffer.push_str(&s);
                 if max > level + 1 {
-                    laws.chapter_inputs_html(father_and_child,level+1, buffer);
+                    laws.chapter_inputs_html(father_and_child, level + 1, buffer);
                 }
             }
         }
@@ -172,14 +229,14 @@ impl crate::Laws {
         }
     }
 
-    pub fn chapter_lines_in_html(&self, chapter1:String, chapter2: String) ->  Result<String, LawError>{
+    pub fn chapter_lines_in_html(&self, chapter1: String, chapter2: String) -> Result<String, LawError> {
         let mut html_text = String::new();
-        let mut max_level : usize;
+        let mut max_level: usize;
         let num = chapter2.split("/").count();
         match self.find_by_chapter(chapter1, chapter2) {
             Ok(laws) => {
                 max_level = laws.count_chapter() - 1;
-                laws.print_all_html(num,&mut html_text);
+                laws.print_all_html(num, &mut html_text);
                 Ok(html_text)
             },
             Err(e) => {
@@ -189,7 +246,7 @@ impl crate::Laws {
     }
 
 
-    pub fn all_in_html(&self, chapter:String) -> Result<String, LawError> {
+    pub fn all_in_html(&self, chapter: String) -> Result<String, LawError> {
         let binding = self.categories(0);
         let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
         let chapter_num = l.count_chapter();
@@ -202,7 +259,7 @@ impl crate::Laws {
         let map1 = self.categories(level);
         map1.iter()
             .for_each(|(name, laws)| {
-                if laws.count_chapter()-1 > level{
+                if laws.count_chapter() - 1 > level {
                     let chapter = format!("<div class='in-chapter'><h3>{}</h3></div>", name);
                     html_text.push_str(&chapter);
                     laws.print_all_html(level + 1, html_text);
@@ -213,7 +270,6 @@ impl crate::Laws {
                 }
             })
     }
-
 
 
     pub fn find_by_chapter(&self, chapter1: String, chapter2: String) -> Result<Laws, LawError> {
@@ -250,7 +306,7 @@ impl crate::Laws {
         };
         match sqlx::query("SELECT * FROM law
         ORDER BY created_at ASC;")
-            .map(|row: PgRow| law{
+            .map(|row: PgRow| law {
                 id: row.get("id"),
                 num: row.get("num"),
                 line: row.get("line"),
@@ -258,9 +314,9 @@ impl crate::Laws {
                 chapter: row.get("chapter")
             })
             .fetch_all(&db_pool)
-            .await{
-                Ok(lines) => Ok(Laws{lines}),
-                Err(_e) => Err(sqlx::Error::WorkerCrashed)
+            .await {
+            Ok(lines) => Ok(Laws { lines }),
+            Err(_e) => Err(sqlx::Error::WorkerCrashed)
         }
     }
 
@@ -270,7 +326,29 @@ impl crate::Laws {
         println!("first element is:{:?}", self.lines.first());
     }
 
+
+    pub async fn update_line(&self, pool: &PgPool) -> std::result::Result<(), sqlx::Error> {
+        let futures = self.lines.iter().map(|law| {
+            sqlx::query("UPDATE law SET line = $1 WHERE id = $2")
+                .bind(&law.line)
+                .bind(&law.id)
+                .execute(pool)
+        }).collect::<Vec<_>>();
+
+
+
+        for result in futures {
+            match result.await {
+                Ok(_) => println!("成功更新"),
+                Err(e) => eprintln!("更新失敗: {e}"),
+            }
+        }
+
+        Ok(())
+    }
 }
+
+
 
 pub fn group(map:IndexMap<String, Laws>) -> Laws {
     let key = map.iter().last().unwrap();
@@ -305,7 +383,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    Ok(s.split(|c| c == '：' || c == '/').map(|s| s.to_string()).collect())
+    Ok(s.split(|c|c == '/').map(|s| s.to_string()).collect())
 }
 
 
@@ -413,6 +491,27 @@ impl crate::law {
         self.chapter = chapter;
     }
 
+    pub fn upadate_line(&mut self, vec: Vec<String>) {
+        self.line = vec;
+    }
+
+    pub async fn add_to_lite_pool(&self, pool: &SqlitePool) {
+        match sqlx::query(
+            "INSERT INTO law (id, num, line, href, chapter) VALUES ($1, $2, $3, $4, $5)"
+        )
+            .bind(self.id.clone())
+            .bind(self.num.clone())
+            .bind(self.line.join("/").clone())
+            .bind(self.href.clone())
+            .bind(self.chapter.clone())
+            .execute(pool)
+            .await
+        {
+            Ok(_) => println!("Insert successful"),
+            Err(e) => eprintln!("Insert failed: {}", e),
+        }
+    }
+
 
 
     pub async fn add_to_pool(&self, pool: &PgPool) {
@@ -446,13 +545,22 @@ pub fn write_law(path: String, vec: Vec<crate::law>) -> std::result::Result<(), 
     Ok(())
 }
 
-pub async fn new_pool() -> PgPool {
+pub async fn new_pool(url: &str) -> PgPool {
     let db_pool = match PgPoolOptions::new()
         .max_connections(5)
-        .connect("").await {
+        .connect(url).await {
         Ok(pool) => pool,
         Err(e) => panic!("sss {}", e),
     };
     db_pool
 }
 
+pub async fn new_lite_pool(url: &str) -> SqlitePool {
+    let db_pool = match SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(url).await {
+        Ok(pool) => pool,
+        Err(e) => panic!("sss {}", e),
+    };
+    db_pool
+}
