@@ -37,6 +37,11 @@ dotenv = "0.15.0"
 openssl = { version = "0.10.32", features = ["vendored"] }
 libsqlite3-sys = { version = "0.28.0", features = ["bundled"]}
 
+[target.x86_64-unknown-linux-musl]
+linker = "musl-gcc"
+rustflags = ["-C", "link-arg=-static"]
+
+
 
 [build-dependencies]
 platforms = "2.0.0"
