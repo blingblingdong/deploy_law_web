@@ -40,7 +40,7 @@ RUN chmod +x /app/target/x86_64-unknown-linux-musl/release/law_web
 
 
 # 使用 scratch 基礎映像來創建最終映像
-FROM scratch
+FROM alpine
 
 # 設定工作目錄
 WORKDIR /app
