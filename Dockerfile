@@ -36,7 +36,7 @@ FROM scratch
 WORKDIR /app
 
 # 在 builder 階段，列出目標目錄中的文件以確保文件存在
-RUN ls -la /app/target/x86_64-unknown-linux-musl/release/
+
 
 
 # 從建置階段的容器中複製編譯好的執行檔和其他必要檔案
