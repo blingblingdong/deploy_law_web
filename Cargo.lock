@@ -1106,6 +1106,7 @@ dependencies = [
  "handle-errors",
  "indexmap",
  "law_rs",
+ "libsqlite3-sys",
  "log",
  "log4rs",
  "openssl",
