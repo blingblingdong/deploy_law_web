@@ -1,8 +1,8 @@
 FROM rust:latest AS builder
 
 RUN rustup target add x86_64-unknown-linux-musl
-RUN apt-get update && \
-    apt-get install -y musl-tools musl-dev gcc-x86-64-linux-gnu build-essential libssl-dev pkg-config
+RUN apt-get update &&  \
+    apt-get install -y musl-tools libssl-dev pkg-config
 
 ENV PKG_CONFIG_ALLOW_CROSS=1
 ENV OPENSSL_DIR=/usr
