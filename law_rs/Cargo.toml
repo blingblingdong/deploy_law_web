@@ -17,4 +17,4 @@ openssl = { version = "0.10.32", features = ["vendored"] }
 
 [dependencies.sqlx]
 version = "0.6"
-features = [ "runtime-tokio-rustls", "migrate", "postgres", "sqlite",]
+features = [ "runtime-tokio-rustls", "migrate", "postgres",]

@@ -1,23 +1,22 @@
 #![recursion_limit = "512"]
 
-pub mod types;
 pub mod routes;
 mod store;
+pub mod types;
 
-#[allow(unused_imports)]
-use handle_errors::return_error;
-use warp::{http::Method, Filter};
-use law_rs::Laws;
-use tracing_subscriber::fmt::format::FmtSpan;
 use crate::routes::file::{delete_file, get_content_markdown, insert_content, update_content};
 use crate::routes::law::{get_laws_by_text, get_on_law};
-use crate::routes::record::{update_note};
+use crate::routes::record::update_note;
 use crate::store::Store;
 use config::Config;
+#[allow(unused_imports)]
+use handle_errors::return_error;
+use law_rs::Laws;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-
+use tracing_subscriber::fmt::format::FmtSpan;
+use warp::{http::Method, Filter};
 
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub struct Args {
@@ -32,16 +31,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .build()
         .unwrap();
 
+    let config = config.try_deserialize::<Args>().unwrap();
 
-    let config = config
-        .try_deserialize::<Args>()
-        .unwrap();
-
-    let log_filter = std::env::var("RUST_LOG")
-        .unwrap_or_else(|_| {
-            format!("handle_errors={},rust_web_dev={},warp={}",
-            config.log_level, config.log_level, config.log_level)
-        });
+    let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| {
+        format!(
+            "handle_errors={},rust_web_dev={},warp={}",
+            config.log_level, config.log_level, config.log_level
+        )
+    });
 
     tracing_subscriber::fmt()
         .with_env_filter(log_filter)
@@ -63,12 +60,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         panic!("找不到Redis");
     }
 
-
     let db_url = std::env::var("DATABASE_PUBLIC_URL").unwrap();
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
     let store_filter = warp::any().map(move || store.clone());
-    let law = Laws::from_pool(&db_url).await
+    let law = Laws::from_pool(&db_url)
+        .await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
 
     let laws_shared = Arc::new(law);
@@ -76,11 +73,16 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 創建warp的filter來重用已加載的laws
     let law_filter = warp::any().map(move || laws_shared.clone());
 
-
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["Content-Type", "Authorization"])
-        .allow_methods(&[Method::PUT, Method::DELETE, Method::GET, Method::POST]);
+        .allow_methods(&[
+            Method::PUT,
+            Method::DELETE,
+            Method::GET,
+            Method::POST,
+            Method::OPTIONS,
+        ]);
 
     let get_dir = warp::get()
         .and(warp::path("all_dir"))
@@ -110,6 +112,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::directory::get_dir_for_pop);
 
+    let get_dir_pub = warp::get()
+        .and(warp::path("pub_dir"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::directory::get_pub_dir);
+
     let get_table = warp::get()
         .and(warp::path("questions"))
         .and(warp::path::param::<String>())
@@ -123,8 +131,8 @@ async fn main() -> Result<(), handle_errors::Error> {
                 method = %info.method(),
                 path = %info.path(),
                 id = %uuid::Uuid::new_v4(),
-            )})
-        );
+            )
+        }));
 
     let get_all_lines = warp::get()
         .and(warp::path("questions"))
@@ -154,8 +162,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(law_filter.clone())
         .and_then(routes::law::get_all_chapters);
-
-
 
     let add_record = warp::post()
         .and(warp::path("questions"))
@@ -261,6 +267,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::file::insert_content);
 
+    let upload_image = warp::post()
+        .and(warp::path("upload_image"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::multipart::form())
+        .and_then(routes::file::upload_image);
+
     let registration = warp::post()
         .and(warp::path("registration"))
         .and(warp::path::end())
@@ -281,16 +295,16 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and_then(routes::authentication::are_you_in_redis);
 
-
     // let static_files = warp::fs::dir("static");
-
 
     // 新增靜態文件路由
 
     let routes = get_all_lines
         .or(get_input_chapter)
+        .or(upload_image)
         .or(login)
         .or(add_dir)
+        .or(get_dir_pub)
         .or(are_you_in_redis)
         .or(update_css)
         .or(get_file_list)
@@ -313,14 +327,11 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(update_content)
         .or(delete_file)
         .or(get_laws_by_text)
-        .with(warp::trace::request())// 提供靜態文件
+        .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);
 
-    warp::serve(routes)
-        .run(([0, 0, 0, 0], config.port))
-        .await;
-
+    warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
     Ok(())
 }

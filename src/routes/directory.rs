@@ -17,6 +17,31 @@ pub async fn get_dir_by_user(user_name: String, stroe: Store) -> Result<impl war
     Ok(warp::reply::html(s))
 }
 
+pub async fn get_pub_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut s = String::new();
+
+    match stroe.get_directory_pub().await {
+        Ok(dirs) => {
+            dirs.iter()
+                .take(20)
+                .map(|k| {format!("
+                <div class='public-dir' id='pub-{}'>
+                    <div>write by：<span>{}</span></div>
+                    <h2>{}</h2>
+                    <div>summary：<span>{}</span></div>
+                </div>", k.id, k.user_name, k.directory, k.description)})
+                .for_each(|str| {
+                    s.push_str(&str);
+                });
+        },
+        Err(e) => {
+            return Err(warp::reject::custom(e))
+        }
+    };
+
+    Ok(warp::reply::html(s))
+}
+
 pub async fn add_dir(store: Store, directory: Directory) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_directory(directory).await {
         Ok(dir) => {

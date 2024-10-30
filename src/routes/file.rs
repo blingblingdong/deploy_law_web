@@ -3,11 +3,15 @@ use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
 use warp::http::StatusCode;
 use tracing::{instrument, info};
+use bytes::BufMut;
 use crate::types::file::{File};
 use crate::types::record;
 use pulldown_cmark::{html, Options, Parser};
+use uuid::Uuid;
+use warp::hyper::client;
 use crate::routes::record::NoteUpdate;
 use crate::store::Store;
+use futures::{StreamExt, TryStreamExt};
 
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
@@ -20,6 +24,88 @@ pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp
     }
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct Image {
+    name: String,
+    bucket: String,
+    generation: String,
+    metageneration: String,
+    contentType: String,
+    timeCreated: String,
+    updated: String,
+    storageClass: String,
+    size: String,
+    md5Hash: String,
+    contentEncoding: String,
+    contentDisposition: String,
+    crc32c: String,
+    etag: String,
+    downloadTokens: String,
+
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ImageUrl {
+    url: String
+}
+
+use warp::hyper::body::Bytes;
+use warp::multipart;
+use warp::multipart::FormData;
+
+pub async fn upload_image(user_name: String, directory: String, form: FormData) -> Result<impl warp::Reply, warp::Rejection> {
+    // 解碼名稱與目錄
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let directory = percent_decode_str(&directory).decode_utf8_lossy();
+    let file_name = format!("{}.jpg", Uuid::new_v4());
+    let url = format!(
+        "https://firebasestorage.googleapis.com/v0/b/rust-law-web-frdata.appspot.com/o?name={}/{}/{}",
+        user_name, directory, file_name
+    );
+
+    let mut value = Vec::new();
+    let mut parts= form.into_stream();
+    if let Some(Ok(p)) =parts.next().await {
+         value = p
+            .stream()
+            .try_fold(Vec::new(), |mut vec, data| {
+                vec.put(data);
+                async move { Ok(vec) }
+            })
+            .await
+            .map_err(|e| {
+                eprintln!("reading file error: {}", e);
+                warp::reject::reject()
+            })?;
+    }
+
+
+    // 發送請求
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .body(value.clone()) // 使用 multipart 表單上傳
+        .send()
+        .await
+        .map_err(|_| warp::reject())?; // 處理錯誤
+
+    if response.status().is_success() {
+        // 解析 Firebase 回應 JSON
+        let image_info: Image = response.json().await.map_err(|_| warp::reject())?;
+
+        // 生成下載 URL
+        let download_url = format!(
+            "https://firebasestorage.googleapis.com/v0/b/{}/o/{}%2F{}%2F{}?alt=media&token={}",
+            image_info.bucket, user_name, directory, file_name, image_info.downloadTokens
+        );
+
+        // 回傳下載 URL
+        Ok(warp::reply::json(&ImageUrl { url: download_url }))
+    } else {
+        println!("圖片上傳失敗: {}", response.status());
+        Err(warp::reject::custom(handle_errors::Error::TokenNotFound))
+    }
+}
 pub async fn get_content_markdown(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy();
     match stroe.get_file(id.to_string()).await {

@@ -261,6 +261,23 @@ impl Store {
         }
     }
 
+    pub async fn get_directory_pub(self) -> Result<Vec<Directory>, handle_errors::Error>{
+        match sqlx::query("SELECT * from directory
+        WHERE public = true")
+            .map(|row: PgRow| Directory {
+                id: row.get("id"),
+                user_name: row.get("user_name"),
+                directory: row.get("directory"),
+                public: row.get("public"),
+                description: row.get("description"),
+            })
+            .fetch_all(&self.connection)
+            .await{
+            Ok(directory) => Ok(directory),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e))
+        }
+    }
+
 
 
     pub async fn add_records(&self, record:LawRecord) -> Result<LawRecord, handle_errors::Error> {
