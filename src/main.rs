@@ -1,5 +1,4 @@
-#![recursion_limit = "512"]
-
+#[recursion_limit = "512"]
 pub mod routes;
 mod store;
 pub mod types;
@@ -224,14 +223,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::file::update_content);
 
-    let update_css = warp::put()
-        .and(warp::path("css"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(store_filter.clone())
-        .and(warp::body::json())
-        .and_then(routes::file::update_css);
-
     let get_content_markdown = warp::get()
         .and(warp::path("file_markdown"))
         .and(warp::path::param::<String>())
@@ -306,7 +297,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(add_dir)
         .or(get_dir_pub)
         .or(are_you_in_redis)
-        .or(update_css)
         .or(get_file_list)
         .or(insert_content)
         .or(add_record)

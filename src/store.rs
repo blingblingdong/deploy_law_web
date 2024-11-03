@@ -30,9 +30,9 @@ impl Store {
 
     pub async fn add_file(&self, file: File) -> Result<File, handle_errors::Error> {
         match sqlx::query(
-            "INSERT INTO file (id, content, css, user_name, directory, file_name)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, content, css, user_name, directory, file_name",
+            "INSERT INTO file (id, content, css, user_name, directory, file_name, content_nav)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, content, css, user_name, directory, file_name, content_nav",
         )
         .bind(file.id)
         .bind(file.content)
@@ -40,6 +40,7 @@ impl Store {
         .bind(file.user_name)
         .bind(file.directory)
         .bind(file.file_name)
+        .bind(file.content_nav)
         .map(|row: PgRow| File {
             id: row.get("id"),
             content: row.get("content"),
@@ -47,6 +48,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_one(&self.connection)
         .await
@@ -74,6 +76,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_all(&self.connection)
         .await
@@ -85,9 +88,9 @@ impl Store {
 
     pub async fn get_file(&self, id: String) -> Result<File, handle_errors::Error> {
         match sqlx::query(
-            "SELECT id, content, css, user_name, directory, file_name
-        FROM file
-        WHERE id = $1;",
+            "SELECT id, content, css, user_name, directory, file_name, content_nav
+            FROM file 
+            WHERE id = $1;",
         )
         .bind(id)
         .map(|row: PgRow| File {
@@ -97,6 +100,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_one(&self.connection)
         .await
@@ -115,7 +119,7 @@ impl Store {
             "UPDATE file
             SET content = $1
             WHERE id = $2
-            RETURNING id, content, css, user_name, directory, file_name;",
+            RETURNING id, content, css, user_name, directory, file_name, content_nav;",
         )
         .bind(content)
         .bind(id)
@@ -126,6 +130,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_one(&self.connection)
         .await
@@ -140,16 +145,18 @@ impl Store {
         id: String,
         content: String,
         css: String,
+        nav: String,
     ) -> Result<File, handle_errors::Error> {
         match sqlx::query(
             "UPDATE file
-            SET content = $1, css = $2
+            SET content = $1, css = $2, content_nav = $4
             WHERE id = $3
-            RETURNING id, content, css, user_name, directory, file_name;",
+            RETURNING id, content, css, user_name, directory, file_name, content_nav;",
         )
         .bind(content)
         .bind(css)
         .bind(id)
+        .bind(nav)
         .map(|row: PgRow| File {
             id: row.get("id"),
             content: row.get("content"),
@@ -157,31 +164,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
-        })
-        .fetch_one(&self.connection)
-        .await
-        {
-            Ok(file) => Ok(file),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
-
-    pub async fn update_css(&self, id: String, css: String) -> Result<File, handle_errors::Error> {
-        match sqlx::query(
-            "UPDATE file
-            SET css = $1
-            WHERE id = $2
-            RETURNING id, content, css, user_name, directory, file_name;",
-        )
-        .bind(css)
-        .bind(id)
-        .map(|row: PgRow| File {
-            id: row.get("id"),
-            content: row.get("content"),
-            css: row.get("css"),
-            user_name: row.get("user_name"),
-            directory: row.get("directory"),
-            file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_one(&self.connection)
         .await
@@ -195,7 +178,7 @@ impl Store {
         match sqlx::query(
             "DELETE FROM file
             Where id = $1
-            RETURNING id, content, css, user_name, directory, file_name;",
+            RETURNING id, content, css, user_name, directory, file_name, content_nav;",
         )
         .bind(id)
         .map(|row: PgRow| File {
@@ -205,6 +188,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
         })
         .fetch_one(&self.connection)
         .await

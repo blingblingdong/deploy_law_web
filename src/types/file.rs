@@ -8,6 +8,7 @@ pub struct File {
     pub user_name: String,
     pub directory: String,
     pub file_name: String,
+    pub content_nav: String,
 }
 
 #[derive(Debug, Clone)]

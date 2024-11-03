@@ -10,9 +10,11 @@ use lol_html::{html_content::ContentType, HtmlRewriter, Settings};
 use percent_encoding::percent_decode_str;
 use pulldown_cmark::{html, Options, Parser};
 use select::document::Document;
-use select::predicate::Name;
 use select::predicate::Predicate;
+use select::predicate::{Class, Name};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use tracing::{info, instrument};
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -144,6 +146,7 @@ pub async fn get_content_html(
                 user_name: file.user_name,
                 directory: file.directory,
                 file_name: file.file_name,
+                content_nav: file.content_nav,
             };
             Ok(warp::reply::json(&json_file))
         }
@@ -164,32 +167,16 @@ pub async fn update_content(
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let vec = update_nav(contnet.content);
     let res = match stroe
-        .update_content_and_css(id.to_string(), vec[0].clone(), vec[1].clone())
+        .update_content_and_css(
+            id.to_string(),
+            vec[0].clone(),
+            vec[1].clone(),
+            vec[2].clone(),
+        )
         .await
     {
         Ok(file) => {
             info!("成功更新筆記：{}", file.id);
-            file
-        }
-        Err(e) => return Err(warp::reject::custom(e)),
-    };
-    Ok(warp::reply::json(&res))
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct UpdateCss {
-    css: String,
-}
-
-pub async fn update_css(
-    id: String,
-    stroe: Store,
-    css: crate::routes::file::UpdateCss,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let id = percent_decode_str(&id).decode_utf8_lossy();
-    let res = match stroe.update_css(id.to_string(), css.css).await {
-        Ok(file) => {
-            info!("成功更新css：{}", file.id);
             file
         }
         Err(e) => return Err(warp::reject::custom(e)),
@@ -277,5 +264,76 @@ pub fn update_nav(file_content: String) -> Vec<String> {
             x.text()
         )
     }));
-    vec![contents, heading_vec.join("")]
+
+    // 找出用到的法律
+    let useLaw = findUseLaw(&contents);
+    vec![contents, heading_vec.join(""), useLaw]
+}
+
+fn findUseLaw(file_content: &str) -> String {
+    let document = Document::from(file_content);
+    let mut lawhash = LawHash {
+        inner: HashMap::new(),
+    };
+    document
+        .find(Class("law-block-chapter-num"))
+        .for_each(|node| {
+            let mut chapter: String = String::new();
+            let mut num: String = String::new();
+            if let Some(n) = node.find(Class("law-block-chapter")).next() {
+                chapter = n.text();
+            };
+            if let Some(n) = node.find(Class("law-block-num")).next() {
+                num = n.text();
+            };
+            if !num.is_empty() && !chapter.is_empty() {
+                lawhash.insert(chapter, num);
+            }
+        });
+
+    let s = lawhash.format();
+    if s.is_empty() {
+        "目前沒有使用任何法條".to_string()
+    } else {
+        s
+    }
+}
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+struct usinglaw {
+    chapter: String,
+    num: String,
+}
+
+impl usinglaw {
+    pub fn new(chapter: String, num: String) -> Self {
+        usinglaw { chapter, num }
+    }
+}
+
+struct LawHash {
+    inner: HashMap<String, HashSet<usinglaw>>,
+}
+
+impl LawHash {
+    pub fn format(self) -> String {
+        let mut buffer = String::new();
+        for (key, set) in self.inner {
+            let ul = format!("<ul class='using-law-chapter'>{}", key);
+            buffer.push_str(&ul);
+            set.iter().for_each(|law| {
+                let li = format!("<li>{}</li>", law.num.clone());
+                buffer.push_str(&li);
+            });
+            buffer.push_str("</ul>")
+        }
+        buffer
+    }
+
+    pub fn insert(&mut self, chapter: String, num: String) {
+        self.inner
+            .entry(chapter.clone())
+            .or_default()
+            .insert(usinglaw::new(chapter, num));
+    }
 }
