@@ -24,7 +24,6 @@ pub enum Error {
     Unauthorized,
     TokenNotFound,
     CacheError(RedisError),
-    ImageClientError(Error)
 }
 
 impl std::fmt::Display for Error {
@@ -35,9 +34,6 @@ impl std::fmt::Display for Error {
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::DatabaseQueryError(ref e) => {
                 write!(f, "Query not be excuted {}", e)
-            },
-            Error::ImageClientError(ref e) => {
-                write!(f, "圖片上傳錯誤： {}", e)
             },
             Error::TokenNotFound => {
                 write!(f, "沒找到token!")
@@ -106,12 +102,6 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
         Ok(warp::reply::with_status(
         "密碼錯誤".to_string(),
         StatusCode::UNAUTHORIZED,
-        ))
-    } else if let Some(crate::Error::ImageClientError(e)) = r.find() {
-        event!(Level::ERROR, "{}", e);
-        Ok(warp::reply::with_status(
-            "圖片上傳錯誤".to_string(),
-            StatusCode::UNPROCESSABLE_ENTITY,
         ))
     } else if let Some(crate::Error::TokenNotFound) = r.find() {
         event!(Level::ERROR, "{}", "找不到token錯誤");
