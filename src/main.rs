@@ -266,6 +266,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::multipart::form())
         .and_then(routes::file::upload_image);
 
+    let image = warp::post()
+        .and(warp::path("image"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::multipart::form())
+        .and_then(routes::file::upload_image);
+
     let registration = warp::post()
         .and(warp::path("registration"))
         .and(warp::path::end())
@@ -292,6 +300,7 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let routes = get_all_lines
         .or(get_input_chapter)
+        .or(image)
         .or(upload_image)
         .or(login)
         .or(add_dir)
