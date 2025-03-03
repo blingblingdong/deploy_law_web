@@ -95,7 +95,7 @@ pub async fn upload_image(
         .body(value.clone()) // 使用 multipart 表單上傳
         .send()
         .await
-        .map_err(|_| warp::reject::custom(handle_errors::Error::TokenNotFound))?; // 處理錯誤
+        .map_err(|e| warp::reject::custom(handle_errors::Error::ExternalAPIError(e)))?; // 處理錯誤
 
     if response.status().is_success() {
         // 解析 Firebase 回應 JSON
