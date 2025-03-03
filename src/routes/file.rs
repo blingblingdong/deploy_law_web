@@ -89,7 +89,10 @@ pub async fn upload_image(
     }
 
     // 發送請求
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .use_rustls_tls()
+        .build().unwrap();
+
     let response = client
         .post(&url)
         .body(value.clone()) // 使用 multipart 表單上傳
