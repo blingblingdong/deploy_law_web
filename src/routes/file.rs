@@ -110,7 +110,7 @@ pub async fn upload_image(
         // 回傳下載 URL
         Ok(warp::reply::json(&ImageUrl { url: download_url }))
     } else {
-        println!("圖片上傳失: {}", response.status());
+        println!("圖片上傳失2: {}", response.status());
         Err(warp::reject::custom(handle_errors::Error::TokenNotFound))
     }
 }
