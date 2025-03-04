@@ -3,7 +3,7 @@ pub mod routes;
 mod store;
 pub mod types;
 
-use crate::routes::file::{delete_file, get_content_markdown, insert_content, update_content};
+use crate::routes::file::{delete_file, get_content_markdown, get_file_list2, insert_content, update_content};
 use crate::routes::law::{get_laws_by_text, get_on_law};
 use crate::routes::record::update_note;
 use crate::store::Store;
@@ -96,6 +96,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::param::<String>())
         .and(store_filter.clone())
         .and_then(routes::file::get_file_list);
+
+    let get_file_list2 = warp::get()
+        .and(warp::path("file_list2"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and_then(routes::file::get_file_list2);
 
     let delete_dir_by_name = warp::delete()
         .and(warp::path("delete_dir_by_name"))
@@ -223,6 +230,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::file::update_content);
 
+    let update_file_name = warp::put()
+        .and(warp::path("file_name"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::file::update_file_name);
+
     let get_content_markdown = warp::get()
         .and(warp::path("file_markdown"))
         .and(warp::path::param::<String>())
@@ -300,6 +315,7 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let routes = get_all_lines
         .or(get_input_chapter)
+        .or(update_file_name)
         .or(image)
         .or(upload_image)
         .or(login)
@@ -326,6 +342,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(update_content)
         .or(delete_file)
         .or(get_laws_by_text)
+        .or(get_file_list2)
         .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);

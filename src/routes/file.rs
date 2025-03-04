@@ -162,6 +162,33 @@ pub struct UpdateContent {
     content: String,
 }
 
+pub async fn update_file_name(
+    id: String,
+    file_name: String,
+    store: Store
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    let file_name = percent_decode_str(&file_name).decode_utf8_lossy();
+    let old_id = id.clone();
+    let id_vec: Vec<&str> = id.split("-").collect();
+    let new_id = format!("{}-{}-{}", id_vec[0], id_vec[1], file_name.clone());
+    let res = match store
+        .update_file_name(
+            old_id.to_string(),
+            file_name.to_string(),
+            new_id,
+        )
+        .await
+    {
+        Ok(file) => {
+            info!("成功更新筆記：{}", file.id);
+            file
+        }
+        Err(e) => return Err(warp::reject::custom(e)),
+    };
+    Ok(warp::reply::json(&res))
+}
+
 pub async fn update_content(
     id: String,
     stroe: Store,
@@ -207,6 +234,27 @@ pub async fn get_file_list(
         });
     Ok(warp::reply::html(s))
 }
+
+pub async fn get_file_list2(
+    user_name: String,
+    dir: String,
+    stroe: Store,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let dir = percent_decode_str(&dir).decode_utf8_lossy();
+    let files = stroe
+        .get_file_user(&user_name.to_owned(), &dir.to_owned())
+        .await?;
+    let mut vec:Vec<String> = Vec::new();
+    files
+        .vec_files
+        .iter()
+        .for_each(|files| {
+            vec.push(files.file_name.clone());
+        });
+    Ok(warp::reply::json(&vec))
+}
+
 
 pub async fn delete_file(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy();

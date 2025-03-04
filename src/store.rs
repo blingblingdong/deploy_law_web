@@ -140,6 +140,38 @@ impl Store {
         }
     }
 
+    pub async fn update_file_name(
+        &self,
+        id: String,
+        file_name: String,
+        new_id: String,
+    ) -> Result<File, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE file
+            SET id = $1, file_name = $2
+            WHERE id = $3
+            RETURNING id, content, css, user_name, directory, file_name, content_nav;",
+        )
+            .bind(new_id)
+            .bind(file_name)
+            .bind(id)
+            .map(|row: PgRow| File {
+                id: row.get("id"),
+                content: row.get("content"),
+                css: row.get("css"),
+                user_name: row.get("user_name"),
+                directory: row.get("directory"),
+                file_name: row.get("file_name"),
+                content_nav: row.get("content_nav"),
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(file) => Ok(file),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn update_content_and_css(
         &self,
         id: String,
