@@ -152,20 +152,20 @@ impl Store {
             WHERE id = $3
             RETURNING id, content, css, user_name, directory, file_name, content_nav;",
         )
-            .bind(new_id)
-            .bind(file_name)
-            .bind(id)
-            .map(|row: PgRow| File {
-                id: row.get("id"),
-                content: row.get("content"),
-                css: row.get("css"),
-                user_name: row.get("user_name"),
-                directory: row.get("directory"),
-                file_name: row.get("file_name"),
-                content_nav: row.get("content_nav"),
-            })
-            .fetch_one(&self.connection)
-            .await
+        .bind(new_id)
+        .bind(file_name)
+        .bind(id)
+        .map(|row: PgRow| File {
+            id: row.get("id"),
+            content: row.get("content"),
+            css: row.get("css"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            content_nav: row.get("content_nav"),
+        })
+        .fetch_one(&self.connection)
+        .await
         {
             Ok(file) => Ok(file),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -275,6 +275,36 @@ impl Store {
             Ok(records) => Ok(LawRecords {
                 vec_record: records,
             }),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_directory(
+        &self,
+        public: bool,
+        description: String,
+        id: String,
+    ) -> Result<Directory, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE directory 
+            SET public = $1, description = $2
+            WHERE id = $3
+            RETURNING id, user_name, directory, public, description",
+        )
+        .bind(public)
+        .bind(description)
+        .bind(id)
+        .map(|row: PgRow| Directory {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            public: row.get("public"),
+            description: row.get("description"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(directory) => Ok(directory),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }

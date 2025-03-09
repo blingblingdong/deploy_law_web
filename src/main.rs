@@ -3,7 +3,9 @@ pub mod routes;
 mod store;
 pub mod types;
 
-use crate::routes::file::{delete_file, get_content_markdown, get_file_list2, insert_content, update_content};
+use crate::routes::file::{
+    delete_file, get_content_markdown, get_file_list2, insert_content, update_content,
+};
 use crate::routes::law::{get_laws_by_text, get_on_law};
 use crate::routes::record::update_note;
 use crate::store::Store;
@@ -230,6 +232,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::file::update_content);
 
+    let update_dir = warp::put()
+        .and(warp::path("dir"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::directory::updtae_dir);
+
     let update_file_name = warp::put()
         .and(warp::path("file_name"))
         .and(warp::path::param::<String>())
@@ -244,6 +253,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(store_filter.clone())
         .and_then(routes::file::get_content_markdown);
+
+    let get_dir_information = warp::get()
+        .and(warp::path("dir_information"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::directory::get_dir_information);
 
     let get_content_html = warp::get()
         .and(warp::path("file_html"))
@@ -317,6 +333,8 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(get_input_chapter)
         .or(update_file_name)
         .or(image)
+        .or(update_dir)
+        .or(get_dir_information)
         .or(upload_image)
         .or(login)
         .or(add_dir)
