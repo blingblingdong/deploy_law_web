@@ -11,7 +11,7 @@ pub struct File {
     pub content_nav: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Files {
     pub vec_files: Vec<File>,
 }

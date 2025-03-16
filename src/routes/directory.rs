@@ -54,7 +54,7 @@ pub async fn get_pub_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejecti
                 <div class='public-dir' id='pub-{}'>
                     <div>write by：<span>{}</span></div>
                     <h2>{}</h2>
-                    <div>summary：<span>{}</span></div>
+                    <div class='summary'>summary：<span>{}</span></div>
                 </div>",
                         k.id, k.user_name, k.directory, k.description
                     )

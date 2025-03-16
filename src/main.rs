@@ -99,6 +99,11 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::get_file_list);
 
+    let get_every_files = warp::get()
+        .and(warp::path("every_file"))
+        .and(store_filter.clone())
+        .and_then(routes::file::get_every_files);
+
     let get_file_list2 = warp::get()
         .and(warp::path("file_list2"))
         .and(warp::path::param::<String>())
@@ -276,6 +281,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(law_filter.clone())
         .and_then(routes::law::get_on_law);
 
+    let get_law_lines = warp::get()
+        .and(warp::path("law_lines"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and_then(routes::law::get_format_lines);
+
     let delete_file = warp::delete()
         .and(warp::path("file"))
         .and(warp::path::param::<String>())
@@ -338,6 +351,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(upload_image)
         .or(login)
         .or(add_dir)
+        .or(get_law_lines)
         .or(get_dir_pub)
         .or(are_you_in_redis)
         .or(get_file_list)
@@ -361,6 +375,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(delete_file)
         .or(get_laws_by_text)
         .or(get_file_list2)
+        .or(get_every_files)
         .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);

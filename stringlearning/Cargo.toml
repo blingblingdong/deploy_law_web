@@ -1,0 +1,10 @@
+[package]
+name = "stringlearning"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+select = '0.6.0'
+kuchiki = '0.8.0'
+lol_html = "0.3"
+uuid = { version = "1.11.0", features= [ "v4", "fast-rng","macro-diagnostics",]}

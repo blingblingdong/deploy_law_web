@@ -89,9 +89,7 @@ pub async fn upload_image(
     }
 
     // 發送請求
-    let client = reqwest::Client::builder()
-        .use_rustls_tls()
-        .build().unwrap();
+    let client = reqwest::Client::builder().use_rustls_tls().build().unwrap();
 
     let response = client
         .post(&url)
@@ -165,7 +163,7 @@ pub struct UpdateContent {
 pub async fn update_file_name(
     id: String,
     file_name: String,
-    store: Store
+    store: Store,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let file_name = percent_decode_str(&file_name).decode_utf8_lossy();
@@ -173,11 +171,7 @@ pub async fn update_file_name(
     let id_vec: Vec<&str> = id.split("-").collect();
     let new_id = format!("{}-{}-{}", id_vec[0], id_vec[1], file_name.clone());
     let res = match store
-        .update_file_name(
-            old_id.to_string(),
-            file_name.to_string(),
-            new_id,
-        )
+        .update_file_name(old_id.to_string(), file_name.to_string(), new_id)
         .await
     {
         Ok(file) => {
@@ -214,6 +208,11 @@ pub async fn update_content(
     Ok(warp::reply::json(&res))
 }
 
+pub async fn get_every_files(stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let files = stroe.get_every_file().await?;
+    Ok(warp::reply::json(&files.vec_files))
+}
+
 pub async fn get_file_list(
     user_name: String,
     dir: String,
@@ -245,16 +244,12 @@ pub async fn get_file_list2(
     let files = stroe
         .get_file_user(&user_name.to_owned(), &dir.to_owned())
         .await?;
-    let mut vec:Vec<String> = Vec::new();
-    files
-        .vec_files
-        .iter()
-        .for_each(|files| {
-            vec.push(files.file_name.clone());
-        });
+    let mut vec: Vec<String> = Vec::new();
+    files.vec_files.iter().for_each(|files| {
+        vec.push(files.file_name.clone());
+    });
     Ok(warp::reply::json(&vec))
 }
-
 
 pub async fn delete_file(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy();

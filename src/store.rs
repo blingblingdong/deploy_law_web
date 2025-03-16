@@ -58,6 +58,25 @@ impl Store {
         }
     }
 
+    pub async fn get_every_file(&self) -> Result<Files, handle_errors::Error> {
+        match sqlx::query("SELECT * from file")
+            .map(|row: PgRow| File {
+                id: row.get("id"),
+                content: row.get("content"),
+                css: row.get("css"),
+                user_name: row.get("user_name"),
+                directory: row.get("directory"),
+                file_name: row.get("file_name"),
+                content_nav: row.get("content_nav"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(file) => Ok(Files { vec_files: file }),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn get_file_user(
         &self,
         user_name: &str,
