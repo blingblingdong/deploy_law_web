@@ -265,9 +265,7 @@ pub async fn get_pdf(
     file_name: String,
     store: Store, // 假設你已經有 Store 型別，它有 get_file 方法
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    if !Path::new("/usr/bin/wkhtmltopdf").exists() {
-        eprintln!("wkhtmltopdf 不存在於 /usr/bin！");
-    }
+
 
     // 解碼參數
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
@@ -322,8 +320,8 @@ pub async fn get_pdf(
 
 
     // 使用 wkhtmltopdf 轉換 HTML 為 PDF
-    let mut command = Command::new("/usr/bin/wkhtmltopdf");
-    command.arg("--margin-top")
+    let output = Command::new("wkhtmltopdf")
+        .arg("--margin-top")
         .arg("0")
         .arg("--margin-bottom")
         .arg("0")
@@ -331,40 +329,22 @@ pub async fn get_pdf(
         .arg("0")
         .arg("--margin-right")
         .arg("0")
-        .arg("-") // 從標準輸入讀取 HTML
-        .arg("-") // 輸出到標準輸出
-        .stdin(Stdio::piped())
+        .arg(format_html)  // 使用臨時檔案作為輸入
+        .arg("-")           // 輸出到標準輸出
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|e| {
+            eprintln!("Error spawning wkhtmltopdf: {:?}", e);
+            handle_errors::Error::TokenNotFound
+        })?;
 
-    // 啟動命令
-    let mut child = command.spawn().map_err(|e| {
-        eprintln!("Error spawning wkhtmltopdf: kind: {:?}, error: {}", e.kind(), e);
-        handle_errors::Error::StdFileErroor(e)})?;
-
-    // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
-    if let Some(mut stdin) = child.stdin.take() {
-        match stdin.write_all(format_html.as_bytes()) {
-            Ok(()) => { println!("寫入成功")},
-            Err(e) => {
-                eprintln!("Error writing to child stdin: {:?}", e);
-                return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
-            }
-        }
-    }
-    // 等待 wkhtmltopdf 完成並捕獲所有輸出（stdout 和 stderr）
-    let output = child.wait_with_output().map_err(|e| {
-        eprintln!("Error waiting for wkhtmltopdf to finish: {:?}", e);
-        handle_errors::Error::TokenNotFound
-    })?;
-
-    // 檢查 wkhtmltopdf 的退出狀態
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         eprintln!("wkhtmltopdf failed: {}", stderr);
-        return Err(warp::reject::custom(handle_errors::Error::TokenNotFound
-        ));
+        return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
     }
+
 
     // 返回 PDF 檔案作為回應
     Ok(Response::builder()
