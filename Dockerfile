@@ -30,15 +30,15 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN wkhtmltopdf --version
 
 
-FROM scratch
+FROM debian:slim
 WORKDIR /app
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
+COPY --from=builder /app/law_web ./
 COPY --from=builder /app/setup.toml ./
 COPY --from=builder /app/mydatabase.db ./
 COPY --from=builder /app/new_record.css ./
-COPY --from=builder /app/output.pdf ./
+# 複製 wkhtmltopdf 執行檔
 COPY --from=builder /usr/bin/wkhtmltopdf /usr/bin/wkhtmltopdf
-
 CMD ["/app/law_web"]
+
 
 
