@@ -25,6 +25,7 @@ WORKDIR /app
 COPY ./ .
 
 
+RUN which wkhtmltopdf
 RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN wkhtmltopdf --version
 
