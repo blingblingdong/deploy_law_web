@@ -3,6 +3,7 @@ use crate::store::Store;
 use crate::types::file::File;
 use crate::types::record;
 use bytes::BufMut;
+use std::fs;
 use futures::{StreamExt, TryStreamExt};
 use lol_html::element;
 use lol_html::{html_content::ContentType, HtmlRewriter, Settings};
@@ -26,6 +27,7 @@ use warp::http::StatusCode;
 use warp::hyper::client;
 use std::io::Read;
 use std::path::Path;
+use tempfile::NamedTempFile;
 
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
@@ -267,6 +269,9 @@ pub async fn get_pdf(
 ) -> Result<impl warp::Reply, warp::Rejection> {
 
 
+
+
+
     // 解碼參數
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
     let dir = percent_decode_str(&dir).decode_utf8_lossy();
@@ -318,9 +323,24 @@ pub async fn get_pdf(
         css,file.file_name, file.css, file.content_nav, file.content
     );
 
+    let tmp_path = "/tmp/test.html";
+
+    // 寫入 HTML 內容到 /tmp/test.html
+    fs::write(tmp_path, format_html).map_err(|e| {
+        eprintln!("Error writing temporary file: {:?}", e);
+        handle_errors::Error::TokenNotFound
+    })?;
+
+    // 確認檔案存在
+    if !Path::new(tmp_path).exists() {
+        eprintln!("Temporary file not found: {}", tmp_path);
+        return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
+    }
+
 
     // 使用 wkhtmltopdf 轉換 HTML 為 PDF
-    let output = Command::new("wkhtmltopdf")
+    let output = Command::new("/usr/bin/wkhtmltopdf")
+        .arg("--enable-local-file-access")
         .arg("--margin-top")
         .arg("0")
         .arg("--margin-bottom")
@@ -329,7 +349,7 @@ pub async fn get_pdf(
         .arg("0")
         .arg("--margin-right")
         .arg("0")
-        .arg(format_html)  // 使用臨時檔案作為輸入
+        .arg(tmp_path)  // 使用臨時檔案作為輸入
         .arg("-")           // 輸出到標準輸出
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -345,6 +365,9 @@ pub async fn get_pdf(
         return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
     }
 
+    if let Err(e) = fs::remove_file(tmp_path) {
+        eprintln!("Warning: Failed to remove temporary file: {:?}", e);
+    }
 
     // 返回 PDF 檔案作為回應
     Ok(Response::builder()
