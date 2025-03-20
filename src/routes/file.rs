@@ -278,12 +278,12 @@ pub async fn get_pdf(
     // 讀取 CSS 檔案
     let mut css_file = OtherFile::open("new_record.css")
         .await
-        .unwrap();
+        .expect("can't open");
     let mut css = String::new();
     css_file
         .read_to_string(&mut css)
         .await
-        .unwrap();
+        .expect("can't read");
 
     // 組合 HTML 內容
     let format_html = format!(
