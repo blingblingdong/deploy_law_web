@@ -25,6 +25,8 @@ use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::client;
 use std::io::Read;
+use std::path::Path;
+
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_file(file).await {
@@ -263,6 +265,10 @@ pub async fn get_pdf(
     file_name: String,
     store: Store, // 假設你已經有 Store 型別，它有 get_file 方法
 ) -> Result<impl warp::Reply, warp::Rejection> {
+    if !Path::new("/usr/bin/wkhtmltopdf").exists() {
+        eprintln!("wkhtmltopdf 不存在於 /usr/bin！");
+    }
+
     // 解碼參數
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
     let dir = percent_decode_str(&dir).decode_utf8_lossy();
