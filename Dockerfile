@@ -35,7 +35,7 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
 COPY --from=builder /app/setup.toml ./
 COPY --from=builder /app/mydatabase.db ./
 COPY --from=builder /app/new_record.css ./
-COPY --from=builder /.env ./
+
 
 CMD ["/app/law_web"]
 
