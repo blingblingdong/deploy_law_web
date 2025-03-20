@@ -9,7 +9,11 @@ RUN apt-get update && \
     build-essential \
     libssl-dev \
     pkg-config \
-    wkhtmltopdf  # 安裝 wkhtmltopdf
+    wkhtmltopdf \
+    libxrender1 \
+    libx11-dev \
+    libfreetype6 \
+    libfontconfig1 # 安裝 wkhtmltopdf
 
 ENV PKG_CONFIG_ALLOW_CROSS=1
 ENV OPENSSL_DIR=/usr
@@ -20,7 +24,7 @@ ENV CC_x86_64_unknown_linux_musl="x86_64-linux-gnu-gcc"
 WORKDIR /app
 COPY ./ .
 
-RUN ls -l /usr/include/openssl
+
 RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN wkhtmltopdf --version
 
@@ -31,6 +35,7 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
 COPY --from=builder /app/setup.toml ./
 COPY --from=builder /app/mydatabase.db ./
 COPY --from=builder /app/new_record.css ./
+COPY --from=builder /.env ./
 
 CMD ["/app/law_web"]
 
