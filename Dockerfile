@@ -30,7 +30,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN wkhtmltopdf --version
 
 
-FROM debian:slim
+FROM debian:bullseye-slim
 WORKDIR /app
 COPY --from=builder /app/law_web ./
 COPY --from=builder /app/setup.toml ./
