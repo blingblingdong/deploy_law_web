@@ -3,7 +3,6 @@ use crate::store::Store;
 use crate::types::file::File;
 use crate::types::record;
 use bytes::BufMut;
-use std::fs;
 use futures::{StreamExt, TryStreamExt};
 use lol_html::element;
 use lol_html::{html_content::ContentType, HtmlRewriter, Settings};
@@ -15,20 +14,20 @@ use select::predicate::Predicate;
 use select::predicate::{Class, Name};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Stdio};
-use tokio::fs::{File as OtherFile};
-use tokio::io::AsyncReadExt;
+use tempfile::NamedTempFile;
+use tokio::fs::File as OtherFile;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{info, instrument};
 use uuid::Uuid;
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::client;
-use std::io::Read;
-use std::path::Path;
-use tempfile::NamedTempFile;
-
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_file(file).await {
@@ -267,11 +266,6 @@ pub async fn get_pdf(
     file_name: String,
     store: Store, // 假設你已經有 Store 型別，它有 get_file 方法
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
-
-
-
-
     // 解碼參數
     let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
     let dir = percent_decode_str(&dir).decode_utf8_lossy();
@@ -285,14 +279,12 @@ pub async fn get_pdf(
         .map_err(|e| warp::reject::custom(e))?;
 
     // 讀取 CSS 檔案
-    let mut css_file = OtherFile::open("new_record.css")
-        .await
-        .expect("can't open");
+    let mut css_file = OtherFile::open("new_record.css").await.expect("can't open");
     let mut css = String::new();
     css_file
         .read_to_string(&mut css)
         .await
-        .map_err(|e|handle_errors::Error::StdFileErroor(e))?;
+        .map_err(|e| handle_errors::Error::StdFileErroor(e))?;
 
     // 組合 HTML 內容
     let format_html = format!(
@@ -303,14 +295,9 @@ pub async fn get_pdf(
             <div id='public-file-word-area-second'>
                 <div id='public-folder-title-bar'>
                     <h1 id='public-folder-file-title'>{}</h1>
-                    <div id='title-bar-button-area'>
-                        <button id='public-search-file'>目錄</button>
-                        <button id='share-file' class='share-file'>分享</button>
-                        <button class='back_to_public_folder'>返回</button>
-                        <button id='public-first-page'>首頁</button>
-                    </div>
+                    <div id='writer'>write by : {}</div>
+                    <div id='folder'>From：{}</div>
                 </div>
-                <div id='public-using-law'>{}</div>
                 <div id='content-table-area'>
                     <h3>content table</h3>
                     <ul id='content-table'>{}</ul>
@@ -320,16 +307,18 @@ pub async fn get_pdf(
         </body>
     </html>
     ",
-        css,file.file_name, file.css, file.content_nav, file.content
+        css, file.file_name, file.user_name, file.directory, file.css, file.content
     );
 
     let tmp_path = "/tmp/test.html";
 
     // 寫入 HTML 內容到 /tmp/test.html
-    fs::write(tmp_path, format_html).map_err(|e| {
+    fs::write(tmp_path, format_html.clone()).map_err(|e| {
         eprintln!("Error writing temporary file: {:?}", e);
         handle_errors::Error::TokenNotFound
     })?;
+
+    fs::write("test.html", format_html.clone()).unwrap();
 
     // 確認檔案存在
     if !Path::new(tmp_path).exists() {
@@ -338,8 +327,9 @@ pub async fn get_pdf(
     }
 
 
+    let wkhtmltopdf_url = std::env::var("WKHTMLTOPDF_URL").unwrap();
     // 使用 wkhtmltopdf 轉換 HTML 為 PDF
-    let output = Command::new("/usr/bin/wkhtmltopdf")
+    let output = Command::new(wkhtmltopdf_url)
         .arg("--enable-local-file-access")
         .arg("--margin-top")
         .arg("0")
@@ -349,8 +339,8 @@ pub async fn get_pdf(
         .arg("0")
         .arg("--margin-right")
         .arg("0")
-        .arg(tmp_path)  // 使用臨時檔案作為輸入
-        .arg("-")           // 輸出到標準輸出
+        .arg(tmp_path) // 使用臨時檔案作為輸入
+        .arg("-") // 輸出到標準輸出
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
