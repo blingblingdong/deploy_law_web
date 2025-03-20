@@ -32,13 +32,13 @@ RUN wkhtmltopdf --version
 
 FROM debian:bullseye-slim
 WORKDIR /app
-COPY --from=builder /app/law_web ./
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
 COPY --from=builder /app/setup.toml ./
 COPY --from=builder /app/mydatabase.db ./
 COPY --from=builder /app/new_record.css ./
-# 複製 wkhtmltopdf 執行檔
-COPY --from=builder /usr/bin/wkhtmltopdf /usr/bin/wkhtmltopdf
+COPY --from=builder /app/output.pdf ./
 CMD ["/app/law_web"]
+
 
 
 
