@@ -22,6 +22,8 @@ COPY ./ .
 
 RUN ls -l /usr/include/openssl
 RUN cargo build --target x86_64-unknown-linux-musl --release
+RUN wkhtmltopdf --version
+
 
 FROM scratch
 WORKDIR /app
