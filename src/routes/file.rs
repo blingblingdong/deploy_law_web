@@ -332,7 +332,7 @@ pub async fn get_pdf(
         .stderr(Stdio::piped());
 
     // 啟動命令
-    let mut child = command.spawn().unwrap();
+    let mut child = command.spawn().expect("child command failed");
 
     // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
     if let Some(mut stdin) = child.stdin.take() {
@@ -352,7 +352,7 @@ pub async fn get_pdf(
     Ok(Response::builder()
         .header("Content-Type", "application/pdf")
         .body(pdf_output)
-        .unwrap())
+        .expect("output failed"))
 }
 
 pub async fn delete_file(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
