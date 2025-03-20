@@ -316,7 +316,7 @@ pub async fn get_pdf(
 
 
     // 使用 wkhtmltopdf 轉換 HTML 為 PDF
-    let mut command = Command::new("wkhtmltopdf");
+    let mut command = Command::new("/usr/bin/wkhtmltopdf");
     command.arg("--margin-top")
         .arg("0")
         .arg("--margin-bottom")
