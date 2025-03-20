@@ -1,0 +1,2429 @@
+.law-card {
+    display: block;
+    background-color: darkorange;
+    padding: 20px;
+    margin: 10px;
+    border-radius: 5px;
+    align-items: center;
+}
+
+.law-card-up {
+    display: flex;
+    align-items: center;
+}
+
+
+.card-law-content {
+    flex: 0 0 75%;
+    display: flex;
+    align-items: center;
+}
+
+.card-tools {
+    flex: 0 0 25%;
+    text-align: right;
+}
+
+.card-law-chapter {
+    color: black;
+    flex: 0 0 20%;
+}
+
+.card-law-lines {
+    color: black;
+    flex: 0 0 80%;
+}
+
+.delete-law, .toggle-note-law  {
+    padding: 10px;
+    border: 1px solid black;
+    background-color: darkorange;
+    font-size: 20px;
+    margin: 10px;
+    border-radius: 10px;
+}
+
+.delete-law:hover, .toggle-note-law:hover  {
+    color: darkorange;
+    background-color: black;
+    cursor: pointer;
+}
+
+.delete-law:hover:before, .toggle-note-law:hover:before  {
+    color: darkorange;
+}
+
+
+.toggle-note-law::before {
+    content: "\f52d";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 20px;
+    color: black;
+}
+
+.card-law-line {
+    margin: 5px;
+}
+
+
+.delete-law::before {
+    content: "\f1f8";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 20px;
+    color: black;
+}
+
+.title, .num {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+/*資料夾內法條筆記處理*/
+.card-law-note {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid black;
+    color: black;
+}
+
+
+/*筆記主體*/
+.note-title {
+    flex: 0 0 15%;
+    display: flex;
+}
+
+.law-note-area {
+    flex: 0 0 60%;
+    display: flex;
+    align-items: center;
+}
+
+
+/*兩個按鈕的容器*/
+.note-tools {
+    flex: 0 0 15%;
+    text-align: right;
+    display: flex;
+}
+
+.note-edit-btn:before {
+    content: "\f044";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 20px;
+    color: black;
+}
+
+.note-hide-btn:before {
+    content: "\f070";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 20px;
+    color: black;
+}
+
+.active {
+    color: darkorange;
+}
+
+
+
+.note-hide-btn, .note-edit-btn  {
+    padding: 10px;
+    border: 1px solid black;
+    background-color: darkorange;
+    font-size: 20px;
+    margin: 10px;
+    border-radius: 10px;
+}
+
+.note-hide-btn:hover, .note-edit-btn:hover  {
+    color: darkorange;
+    background-color: black;
+    cursor: pointer;
+}
+
+.note-hide-btn:hover:before, .note-edit-btn:hover:before  {
+    color: darkorange;
+}
+
+
+/*筆記表單部分*/
+
+
+.note-form-text {
+    width: 450%;
+    margin: 10px 0;
+    padding: 10px;
+    border: none;
+    font-size: 12px;
+    border-radius: 5px;
+    flex: 0 0 85%;
+}
+
+.law-note-form {
+    align-items: center;
+    align-content: center;
+    text-align: center;
+    display: flex;
+}
+
+.law-note-form button {
+    border: 1px solid black;
+    background-color: darkorange;
+    font-size: 20px;
+    margin: 5px;
+    border-radius: 10px;
+}
+
+.note-form-btn:before {
+    content: "\f1d8";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 15px;
+    color: black;
+}
+
+.law-note-form button:hover {
+    color: darkorange;
+    background-color: black;
+    cursor: pointer;
+}
+
+.law-note-form button:hover:before {
+    color: darkorange;
+}
+
+/*editor-header*/
+#editor-header {
+    position: fixed;
+    bottom: 0;
+}
+
+
+#cancel-edit {
+    left: 0;
+    position: fixed;
+    bottom:0;
+    border: 1px solid white;
+    background-color: black;
+    color: white;
+    padding: 10px;
+    margin: 10px;
+    font-size: 15px;
+}
+
+#confirm-edit {
+    right: 50%;
+    position: fixed;
+    bottom: 0;
+    border: 1px solid white;
+    border-radius: 5px;
+    background-color: black;
+    color: white;
+    padding: 10px;
+    margin: 10px;
+    font-size: 15px;
+}
+
+
+
+
+
+/*新增卡*/
+.card-add-form {
+    align-items: center;
+    align-content: center;
+    display: flex;
+}
+
+.card-add-form input,
+.card-add-form textarea {
+    background: black;
+    color: darkorange;
+    height: 30px;
+    width: 30%;
+    margin: 10px 15px;
+    padding: 5px;
+    border: none;
+    font-size: 15px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.card-add-form button {
+    border: 1px solid black;
+    background-color: darkorange;
+    font-size: 20px;
+    border-radius: 10px;
+}
+
+#preview {
+    padding: 10px;
+    border: 1px solid white;
+    margin-bottom: 300px;
+}
+
+#preview, #markdown {
+    word-wrap: break-word;    /* 允許長單詞斷行 */ /* 空白處理正常，允許自然換行 */
+    overflow-wrap: break-word;/* 確保斷字發生 */
+    overflow: auto;           /* 避免內容溢出，顯示滾動條 */
+    word-break: break-all;
+}
+
+#markdown {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid white;
+    margin-bottom: 300px;
+    font-size: 15px;
+    background-color: black;
+    color: white;
+    height: 10000000px;
+}
+
+
+
+#in_folder_nav button {
+    border: 1px solid white;
+    background-color: black;
+    font-size: 15px;
+    border-radius: 10px;
+    padding: 10px;
+    color: white;
+    margin: 5px;
+}
+
+#in_folder_nav {
+    text-align: center;
+}
+
+
+#word-area {
+    margin-top: 50px;
+    width: 100%;
+    overflow-y: auto;
+}
+
+#record-viewer {
+    margin-top: 10px;
+    display: flex;
+}
+
+#record-viewer-block {
+    padding: 10px;
+    width: 100%;
+    border: 1px solid white;
+    margin-bottom: 300px;
+}
+
+.hideproperty {
+    display: none;
+}
+
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+
+.main-container {
+    font-family: 'Apple Symbols';
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.ck-content {
+    font-family: 'Arial';
+    line-height: 1.6;
+    word-break: break-word;
+    background-color: black !important;
+    color: white;
+}
+
+.editor-container_classic-editor .editor-container__editor {
+}
+
+.popup-content {
+    background-color: black;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    border: white solid 1px;
+}
+
+.popup-header h3 {
+    color: darkorange;
+}
+
+
+.popup {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+/* 標題 */
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* 選項區 */
+.popup-body {
+    margin-top: 0px;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.option input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+/* 底部按鈕 */
+.popup-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.popup-footer button {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: black;
+    color: white;
+}
+
+.popup-footer button:hover {
+    background-color: #0056b3;
+}
+
+/* 關閉按鈕 */
+.close-btn {
+    cursor: pointer;
+}
+
+
+
+.popup-header {
+    align-content: center;
+    align-content: center;
+    text-align: center;
+}
+
+#create-dir-form {
+    align-content: center;
+    align-content: center;
+    text-align: center;
+}
+
+#create-dir-form input {
+    background-color: black;
+    color: white;
+    padding: 10px;
+    margin: 10px;
+    width: 200px
+}
+
+#create-dir-form button {
+    background-color: black;
+    color: white;
+    padding: 10px;
+    margin: 10px;
+    width: 200px
+}
+
+#addFolder {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: black;
+    color: white;
+}
+
+#add_dir_form  {
+    display:flex;
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+}
+
+#add_dir_form input  {
+    background-color: black;
+    color: white;
+    width: 50%;
+    margin: 10px;
+    padding: 10px;
+}
+
+#add_dir_form  button {
+    background-color: black;
+    color: white;
+    width: 50%;
+    margin: 10px;
+    border: none;
+    border-radius: 5px;
+}
+
+#insert-law-card {
+    display:flex;
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+}
+
+#insert-law-card input  {
+    background-color: black;
+    color: white;
+    width: 50%;
+    margin: 10px;
+    padding: 10px;
+}
+
+#insert-law-card textarea  {
+    background-color: black;
+    color: white;
+    width: 50%;
+    margin: 10px;
+    padding: 10px;
+}
+
+#insert-law-card  button {
+    background-color: black;
+    color: white;
+    width: 50%;
+    margin: 10px;
+    border: none;
+    border-radius: 5px;
+}
+
+  #card-preview {
+      background-color: darkorange;
+      color: black;
+      padding: 20px;
+      border-radius: 10px;
+  }
+
+#view-bar {
+    background-color: black;
+    color: white;
+    overflow-y: auto;
+    overflow: auto;
+    height: 200px;
+}
+
+#law-card-flex {
+    background-color: darkorange;
+    width: 500px;
+    height: 300px;
+}
+
+.law-block {
+    color: white;
+    border-left: 1px solid white;
+    margin: 10px;
+}
+
+.multiple-block {
+    color: white;
+    border: 1px solid white;
+    margin: 10px;
+}
+
+.law-block-content-multiple {
+    border-bottom: 0px solid white;
+    margin-top: 15px;
+    margin-left: 10px;
+    margin-right: 5px;
+  }
+
+.law-block-chapter {
+    font-weight: bold;
+}
+
+.law-block-chapter:hover {
+    cursor: pointer;
+    color: red;
+}
+
+
+#personal-png {
+  width: 100px;
+  border-radius: 50%;
+}
+
+#personal-data {
+    margin-top: 100px;
+    flex-direction: column;
+    align-items: center !important;
+    align-content: center !important;
+}
+
+#personal-data h3 {
+    text-align: left;
+    margin: 10px;
+    padding: 10px;
+}
+
+#personal-data button {
+    background-color: darkorange;
+    color: black;
+    width: 100px;
+    padding: 10px;
+    border: 0px;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center !important;
+}
+
+.law-block-lines {
+    list-style-type: upper-roman !important;
+}
+
+.normal-button {
+    background-color: #444;
+    color: #fff;
+    cursor: pointer;
+    background-color: darkorange;
+    color: black;
+    border: 1px solid black;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.top-search-law-area {
+    align-content: center;
+    align-items: center;
+    text-align: left;
+    padding: 10px 50px;
+    margin: 10px;
+}
+
+#result-area {
+    height: 450px;
+    overflow-y: auto;
+    border: 0px solid #444;
+    margin: 0px 30px;
+
+}
+
+.law-block-lines {
+    text-align: left;
+    font-size: 18px;
+}
+
+.top-search-law-title{
+    font-size: 20px;
+    font-weight: bold;
+    align-items: center;
+}
+
+@media only screen and (max-width: 786px) {
+    .top-search-law-title{
+        font-size: 15px;
+    }
+
+    .top-law_search-add-area button {
+        font-size: 12px;
+    }
+
+}
+
+
+.top-search-law-title h2 {
+    position: relative;
+    border-bottom: 5px solid white;
+    width: 80%;
+}
+
+.top-search-law-title h2::after{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 70px;
+    height: 5px;
+    background-color: darkorange;
+}
+
+.top-law_search-add-area button {
+    padding: 5px;
+    margin-left: 10px;
+}
+
+.top-search-law-area-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 50px;
+}
+
+#search-law-form {
+  margin-top: 50px;
+  margin-left: 10px;
+ }
+
+#num-input-wrapper {
+  display: flex;
+}
+
+#search-law-form input,
+#search-law-form textarea {
+    background-color: black;
+    color: #fff;
+}
+
+#top-search-law-h2 {
+    text-align: left !important;
+    padding: 20px;
+}
+
+.ham-but {
+    display: none;
+    top: 30px;
+    right: 0px;
+    font-size: 30px;
+    background-color: black;
+    color: white;
+    border: none;
+}
+
+
+@media only screen and (max-width: 400px) {
+    .ham-but {
+        display: block;
+    }
+
+    .hider {
+        display: none !important;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+
+    .law-block-lines {
+        font-size: 14px;
+    }
+
+    .top-search-law-area {
+        padding: 10px 5px;
+        margin: 5px;
+    }
+
+    #folder-type {
+      top: 83px;
+    }
+
+    #file-type{
+      top: 83px !important;
+    }
+
+
+}
+
+@media only screen and (min-width: 401px) and (max-width: 700px){
+    .ham-but {
+        display: block;
+    }
+
+    .hider {
+        display: none !important;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+}
+
+        
+.header-container {
+    display: flex;
+    position: sticky !important;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    top: 10px;
+    z-index: 0;
+}
+
+
+#small-header {
+  display: none;
+}
+
+option {
+  font-size: 20px;
+}
+
+
+.header-title {
+    font-size: 30px;
+    color: darkorange;
+    text-align: center;
+    font-family: "Playwrite DE Grund", cursive;
+}
+
+@media only screen and (max-width: 600px) {
+  .header-title {
+    font-size: 30px;
+  }
+
+  #big-header {
+    display: none;
+  }
+
+  #small-header {
+    display: flex;
+  }
+}
+
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    list-style: none;
+}
+
+.navbar li:not(:last-child) {
+    margin-right: 50px;
+}
+
+.navbar li:last-child {
+    margin-right: 20px;
+}
+
+.main-li {
+    font-weight: 700;
+    text-align: center;
+}
+
+.main-li a {
+    display: flex;
+    color: white;
+    text-align: center;
+    font-size: 18px;
+    text-decoration: none;
+}
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: 250px;
+    z-index: 999;
+    opacity: 0.8;
+    background-color: black;
+    list-style: none;
+}
+
+.sidebar li {
+    padding: 10px 5px;
+
+}
+
+.pre-but {
+    position: absolute;
+    top:600px;
+    left: 10px;
+    font-size: 30px;
+}
+
+.next-but {
+    position: absolute;
+    top:600px;
+    right: 10px;
+    font-size: 30px;
+}
+
+.ck-toolbar {
+    background-color: black !important;
+    color: white !important;
+}
+
+.ck-button {
+    color: white!important;
+}
+
+dl {
+    display: flex; /*水平並列*/
+    justify-content: space-between; /*左右對齊*/
+}
+
+dt {
+    padding: 20px 30px;
+    width: 150px;
+    border-bottom: 2px solid #5b8f8f;
+}
+
+dd {
+    padding: 20px 30px;
+    width: calc(100% - 150px); /*減掉dt的寬度，並讓dd的寬度能支援響應式設計*/
+    border-bottom: 2px solid #bbb;
+}
+
+.record-nav {
+    padding-left: 0;
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    list-style: none;
+}
+
+#in_folder_title{
+    display: flex;
+    justify-content: center;
+    align-self: center;
+    align-items: center;
+}
+
+#in_folder_title h3 {
+    padding-right: 50px;
+}
+
+@media only screen and (max-width: 600px) { 
+
+    .record-nav {
+        gap: 20px;
+    }
+
+    
+    .record-nav li {
+     font-size: 12px;
+    }
+}
+
+
+
+.record-nav li {
+    color: white;
+    padding: 5px 10px;
+}
+
+.active2 {
+    background-color: darkorange;
+    color: black !important;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+#login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #1a1a1a;
+    padding: 20px;
+    margin: 100px 20px;
+    backdrop-filter: blur(80px);
+}
+
+#login-container a {
+    color: white;
+}
+
+#login-or-register {
+    display: flex;
+    gap: 10px;
+}
+
+#login, #register {
+    font-size: 15px;
+    margin: 10px;
+    padding: 5px 10px;
+    background-color: #222;
+    color: #fff;
+    border-radius: 5px;
+    border: 1px solid white;
+}
+
+#enter-form {
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+}
+
+#enter-form input, #register-form input {
+    font-size: 15px;
+    margin: 10px;
+    padding: 10px;
+    background-color: #222;
+    color: #fff;
+    width: 120%;
+    border-radius: 5px;
+    border: 1px solid white;
+}
+
+#enter-form button, #register-form button {
+    font-size: 15px;
+    margin: 10px;
+    padding: 10px;
+    background-color: #222;
+    color: #fff;
+    width: 60%;
+    border-radius: 5px;
+    border: 1px solid white;
+}
+
+#register-form {
+    display: flex;
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+}
+
+.active3 {
+    background-color: white !important;
+    color: black!important;
+}
+
+#file_name {
+    color: white;
+}
+
+#file {
+    flex-direction: row;
+    gap: 20px;
+}
+
+@media only screen and (max-width: 1000px) {
+    #file {
+        flex-direction: column;
+        gap: 0px;
+    }
+
+    #file-list {
+        flex-direction: row !important;
+    }
+  
+    #file_display {
+        width: 100% !important;
+    }
+}
+
+#file-list {
+    flex-wrap: wrap;
+    list-style: none;
+    padding-left: 10px;
+    text-align: center;
+    display: flex;
+    gap: 20px;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#file-nav {
+    text-align: left;
+}
+
+#file-list li {
+    font-size: 18px;
+    border-right: 1px solid darkorange;
+    padding-right: 12px;
+}
+
+
+
+
+#file_display {
+    width: 30%;
+}
+
+.file-active {
+    color: darkorange;
+}
+
+#file-toggle {
+    padding-left: 10px;
+}
+
+#create-file-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+#create-file-form input{
+    padding: 10px;
+    width: 80%;
+    background-color: black;
+    color: white;
+    border-radius: 5px;
+    border: solid 1px white;
+}
+
+#create-file-form button {
+    padding: 10px 20px;
+    background-color: darkorange;
+    color: black;
+    font-weight: bold;
+    font-size: 12px;
+    border: none;
+    border-radius: 5px;
+}
+
+#editor-tool-bar-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#editor-tool-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 0px;
+    justify-content: flex-start;
+ }
+
+#editor-tool-bar h1 {
+  color: white;
+}
+
+@media only screen and (max-width: 600px) {
+  #editor-tool-bar h1 {
+    font-size: 25px;
+  }
+
+  #editor-tool-bar {
+    display: block;
+  }
+
+  #editor-tool-bar-buttons button {
+    font-size: 12px !important;
+    border: none !important;
+
+  }
+}
+
+
+#editor-tool-bar-buttons button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: 1px solid white;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+    color: white;
+    background-color: black;
+}
+
+#record-viewer-tools-edit {
+
+}
+
+#record-viewer-tools-delete {
+}
+
+button {
+    color: black;
+}
+
+:root {
+    /* Overrides the border radius setting in the theme. */
+    --ck-border-radius: 4px;
+    --ck-z-default: 100;
+
+    /* Overrides the default font size in the theme. */
+    --ck-font-size-base: 14px;
+
+    /* Helper variables to avoid duplication in the colors. */
+    --ck-custom-background: black;
+    --ck-custom-foreground: black;
+    --ck-custom-border: black;
+    --ck-custom-white: hsl(0, 0%, 100%);
+
+    /* -- Overrides generic colors. ------------------------------------------------------------- */
+
+    --ck-color-base-foreground: var(--ck-custom-background);
+    --ck-color-focus-border: hsl(208, 90%, 62%);
+    --ck-color-text: hsl(0, 0%, 98%);
+    --ck-color-shadow-drop: hsla(0, 0%, 0%, 0.2);
+    --ck-color-shadow-inner: hsla(0, 0%, 0%, 0.1);
+
+    /* -- Overrides the default .ck-button class colors. ---------------------------------------- */
+
+    --ck-color-button-default-background: var(--ck-custom-background);
+    --ck-color-button-default-hover-background: hsl(270, 1%, 22%);
+    --ck-color-button-default-active-background: hsl(270, 2%, 20%);
+    --ck-color-button-default-active-shadow: hsl(270, 2%, 23%);
+    --ck-color-button-default-disabled-background: var(--ck-custom-background);
+
+    --ck-color-button-on-background: var(--ck-custom-foreground);
+    --ck-color-button-on-hover-background: hsl(255, 4%, 16%);
+    --ck-color-button-on-active-background: hsl(255, 4%, 14%);
+    --ck-color-button-on-active-shadow: hsl(240, 3%, 19%);
+    --ck-color-button-on-disabled-background: var(--ck-custom-foreground);
+
+    --ck-color-button-action-background: hsl(168, 76%, 42%);
+    --ck-color-button-action-hover-background: hsl(168, 76%, 38%);
+    --ck-color-button-action-active-background: hsl(168, 76%, 36%);
+    --ck-color-button-action-active-shadow: hsl(168, 75%, 34%);
+    --ck-color-button-action-disabled-background: hsl(168, 76%, 42%);
+    --ck-color-button-action-text: var(--ck-custom-white);
+
+    --ck-color-button-save: hsl(120, 100%, 46%);
+    --ck-color-button-cancel: hsl(15, 100%, 56%);
+
+    /* -- Overrides the default .ck-dropdown class colors. -------------------------------------- */
+
+    --ck-color-dropdown-panel-background: var(--ck-custom-background);
+    --ck-color-dropdown-panel-border: var(--ck-custom-foreground);
+
+    /* -- Overrides the default .ck-dialog class colors. ----------------------------------- */
+
+    --ck-color-dialog-background: var(--ck-custom-background);
+    --ck-color-dialog-form-header-border: var(--ck-custom-border);
+
+    /* -- Overrides the default .ck-splitbutton class colors. ----------------------------------- */
+
+    --ck-color-split-button-hover-background: var(--ck-color-button-default-hover-background);
+    --ck-color-split-button-hover-border: var(--ck-custom-foreground);
+
+    /* -- Overrides the default .ck-input class colors. ----------------------------------------- */
+
+    --ck-color-input-background: var(--ck-custom-background);
+    --ck-color-input-border: hsl(257, 3%, 43%);
+    --ck-color-input-text: hsl(0, 0%, 98%);
+    --ck-color-input-disabled-background: hsl(255, 4%, 21%);
+    --ck-color-input-disabled-border: hsl(250, 3%, 38%);
+    --ck-color-input-disabled-text: hsl(0, 0%, 78%);
+
+    /* -- Overrides the default .ck-labeled-field-view class colors. ---------------------------- */
+
+    --ck-color-labeled-field-label-background: var(--ck-custom-background);
+
+    /* -- Overrides the default .ck-list class colors. ------------------------------------------ */
+
+    --ck-color-list-background: var(--ck-custom-background);
+    --ck-color-list-button-hover-background: var(--ck-color-base-foreground);
+    --ck-color-list-button-on-background: var(--ck-color-base-active);
+    --ck-color-list-button-on-background-focus: var(--ck-color-base-active-focus);
+    --ck-color-list-button-on-text: var(--ck-color-base-background);
+
+    /* -- Overrides the default .ck-balloon-panel class colors. --------------------------------- */
+
+    --ck-color-panel-background: var(--ck-custom-background);
+    --ck-color-panel-border: var(--ck-custom-border);
+
+    /* -- Overrides the default .ck-toolbar class colors. --------------------------------------- */
+
+    --ck-color-toolbar-background: var(--ck-custom-background);
+    --ck-color-toolbar-border: var(--ck-custom-border);
+
+    /* -- Overrides the default .ck-tooltip class colors. --------------------------------------- */
+
+    --ck-color-tooltip-background: hsl(252, 7%, 14%);
+    --ck-color-tooltip-text: hsl(0, 0%, 93%);
+
+    /* -- Overrides the default colors used by the ckeditor5-image package. --------------------- */
+
+    --ck-color-image-caption-background: hsl(0, 0%, 97%);
+    --ck-color-image-caption-text: hsl(0, 0%, 20%);
+
+    /* -- Overrides the default colors used by the ckeditor5-widget package. -------------------- */
+
+    --ck-color-widget-blurred-border: hsl(0, 0%, 87%);
+    --ck-color-widget-hover-border: hsl(43, 100%, 68%);
+    --ck-color-widget-editable-focus-background: var(--ck-custom-white);
+
+    /* -- Overrides the default colors used by the ckeditor5-link package. ---------------------- */
+
+    --ck-color-link-default: hsl(190, 100%, 75%);
+}
+
+.ck-editor__main {
+    padding: 0px !important;
+    margin: 0 !important;
+    width: 100%;
+}
+
+
+th {
+    text-align: center !important;
+    color: black;
+    border: 1px solid white ;
+    text-align: center;
+    background-color: #76BB8D;
+}
+
+tr {
+    text-align: center !important;
+    border: 1px solid white;
+    text-align: center;
+    color: white;
+}
+
+.ck-widget__type-around {
+    display: none;
+}
+
+.ck-widget__resizer {
+    display: none;
+}
+
+.image {
+    overflow-y: auto;
+    max-width: fit-content;
+    max-height: 400px;
+}
+
+td {
+    text-align: center !important;
+    border: 1px solid white;
+    text-align: center;
+    color: white;
+}
+
+table, td, th {
+    border: 1px solid white !important;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#dir-nav {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    list-style: none;
+    align-items: center;
+}
+
+.dir-nav-active {
+    background-color: darkorange;
+    color: black;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+#public-folder-search {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    margin: 10px;
+}
+
+#public-folder-search input {
+    background-color: #242424;
+    border-radius: 5px;
+    border: none;
+    color: white;
+    font-size: 15px;
+    width: 70%;
+    padding: 10px 20px;
+}
+
+
+#public-dir-display h2, .AdisplayFile h2 {
+    margin: 10px 0;
+    color: darkorange;
+}
+
+#public-dir-display, #AdisplayFile-area {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.public-dir, .AdisplayFile {
+    display: flex;
+    margin: 10px;
+    flex-direction: column;
+    padding: 10px;
+    border-bottom: 1px solid white;
+}
+
+#public-folder-file {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+}
+
+#public-folder-file-nav {
+    display: grid;
+    gap: 10px;
+    width: 100px;
+    list-style: decimal;
+    padding-left: 20px;
+
+}
+
+
+
+
+#public-file-nav {
+    padding-left: 5px;
+  }
+
+#public-folder-ham {
+    display: none;
+    top: 200px;
+    content: "\f0c9";
+    font-family: "Font Awesome 5 Free";
+    background-color: black;
+    border: none;
+}
+
+
+#public-folder-ham:after {
+    content: "\f0c9";
+    font-family: "Font Awesome 5 Free";
+    font-size: 20px;
+    color: white;
+}
+
+
+
+
+@media only screen and (max-width: 600px) {
+    #public-folder-ham {
+        display: block;
+        content: "\f0c9";
+        font-family: "Font Awesome 5 Free";
+    }
+
+    #public-folder-file-nav {
+        display: none;
+           }
+
+    #public-folder-file-nav li {
+      padding-bottom: 5px;
+    }
+
+    #public-folder-file {
+        display: block;
+    }
+
+    #public-file-nav {
+        padding-left: 5px;
+        width: 100%;
+        text-align: left;
+    }
+
+}
+
+.public-folder-nav {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    list-style: none;
+    margin-top: 0px;
+}
+
+#in-public-folder-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0px;
+}
+
+#in-public-folder {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+}
+
+#content-table li a {
+  color: white;
+  text-decoration: none;
+}
+
+#content-table {
+  list-style: none;
+  padding: 0;
+}
+
+#content-table-area {
+  border-top: 1px solid white;
+  border-bottom: 1px solid white;
+  padding: 5px 0;
+  margin-top: 10px;
+}
+
+#content-table-area h3 {
+  margin: 0;
+}
+
+#private-content-table li a {
+  color: white;
+  text-decoration: none;
+}
+
+#private-content-table {
+  list-style: none;
+  padding: 0;
+}
+
+#private-content-table-area {
+  border-top: 1px solid white;
+  border-bottom: 1px solid white;
+  padding: 5px 0;
+  margin-top: 10px;
+}
+
+#private-content-table-area h3 {
+  margin: 0;
+}
+
+.content-table-h3 {
+  padding-left: 5px;
+}
+
+.content-table-h2 {
+  font-weight: bold;
+}
+
+.using-law-chapter {
+  padding: 0px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  list-style: none;
+}
+
+.using-law-chapter li {
+ padding: 0px; 
+}
+
+.using-law-chapter:hover {
+  display: flex;
+}
+
+#next-file {
+  color: white;
+  font-size: 20px;
+  margin:0px;
+}
+
+#last-file {
+  color: white;
+  font-size: 20px;
+}
+
+
+#record_table {
+    text-align: left;
+}
+
+body {
+    background-color: #000;
+    color: #fff;
+    display: block;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.law-content { /* 底部白色底線 */
+    margin-bottom: 20px; /* 與下一個元素的距離 */
+    padding: 10px 0; /* 讓內容與底線有些空間 */
+}
+
+.law-chapter {
+    font-weight: bold; /* 文字粗體 */
+    text-align: left;  /* 文字靠左對齊 */
+}
+
+.law-lines {
+    text-align: left;  /* 文字靠左對齊 */
+}
+
+
+.right{
+    padding-left:150px;
+    position:relative;
+}
+
+.chapter-ul-1,
+.chapter-ul-2,
+.chapter-ul-3,
+.chapter-ul-4,
+.chapter-ul-5{
+    list-style: none;
+}
+
+.chapter-li-1 a,
+.chapter-li-2 a,
+.chapter-li-3 a,
+.chapter-li-4 a,
+.chapter-li-5 a{
+    font-size: 20px;
+}
+
+
+.container {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    border-bottom: 1px solid white;
+    padding-top: 20px;
+    align-items: center;
+}
+
+.box1 {
+    flex: 0 0 60%; /* 不縮小、不增長、初始寬度為80% */
+}
+
+.box2, .box3 {
+    flex: 0 0 20%; /* 不縮小、不增長、初始寬度為10% */
+    padding-left: 10px;
+}
+
+.add-law{
+    background-color: #444;
+    color: #fff;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    font-size: 15px
+}
+
+/* 確保父容器全屏並設置 Flexbox */
+#law-search-area {
+    /* 區域高度設為全屏 */
+    width: 100vw; /* 區域寬度設為全屏 */
+    margin-top: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+/* 讓表單內容更居中美觀 */
+#law-search-area-form {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px; /* 表單項目之間的間距 */
+}
+
+
+#law-search-area-form input,
+#law-search-area-form textarea,
+#law-search-area-form button {
+    margin: 10px 0px;
+    padding: 10px 10px;
+    border: none;
+    font-size: 20px;
+    border-radius: 5px;
+}
+
+
+@media only screen and (max-width: 786px) {
+
+    #law-search-area-form input,
+    #law-search-area-form textarea,
+    #law-search-area-form button {
+        font-size: 15px;
+    }
+
+}
+
+#law-show-area-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px; /* 表單項目之間的間距 */
+}
+
+#law-show-area-form input,
+#law-show-area-form textarea,
+#law-show-area-form button {
+    margin: 10px 0px;
+    padding: 5px 10px;
+    border: none;
+    font-size: 20px;
+    border-radius: 5px;
+}
+
+@media only screen and (max-width: 786px) {
+
+    #law-show-area-form input,
+    #law-show-area-form textarea,
+    #law-show-area-form button {
+        font-size: 15px;
+    }
+
+    .law-search-area-form-send {
+        font-size: 20px !important;
+    }
+
+}
+
+#law-search-text-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px; /* 表單項目之間的間距 */
+}
+
+#law-search-text-form input,
+#law-search-text-form button {
+    margin: 10px 0px;
+    padding: 5px 10px;
+    border: none;
+    font-size: 20px;
+    border-radius: 5px;
+}
+
+@media only screen and (max-width: 786px) {
+
+    #law-search-text-form input,
+    #law-search-text-form button {
+        font-size: 15px;
+    }
+}
+
+
+.law-search-area-result {
+    width: 90%;
+}
+
+.law-search-area-form-send {
+    background-color: black;
+    color: white !important;
+    font-size: 30px;
+}
+
+.law-search-area-form-send:after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 70px;
+    height: 5px;
+    background-color: darkorange;
+}
+
+#law-search-area-form input{
+    flex: 0 0 55%;
+}
+
+
+#search-area {
+  display: flex;
+  justify-content: flex-start; /* 水平居中 */
+  flex-direction: column;
+  gap: 20px;
+}
+
+#law-search-area-form button {
+    background-color: darkorange;
+    font-weight: bold;
+}
+
+.law-search-area-nav {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+    list-style: none;
+    align-items: center;
+    gap: 30px;
+    padding-left: 0;
+}
+
+/* 輸入框和按鈕樣式 */
+#search-chapter {
+    padding: 10px;
+    width: 200px;
+    margin-bottom: 10px;
+}
+
+button[type="submit"] {
+    padding: 10px 20px;
+}
+
+
+
+
+#dir {
+    display: grid;
+    gap: 20px;
+    padding: 0px;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.the-dir {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    font-size: 20px;
+    width: 100px;
+}
+
+
+
+.add-dir {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    font-size: 20px;
+    width: 100px;
+    cursor: pointer;
+}
+
+.the-dir:hover:before {
+    content: '\f07c'; /* Font Awesome 的 other icon */
+}
+
+.add-dir::before {
+    content: '\f055'; /* Font Awesome 的 folder icon 的 Unicode */
+    font-family: 'Font Awesome 5 Free'; /* 確保使用正確的字體家族 */
+    font-weight: 900; /* Solid icons 需要使用 900 的字重 */
+    color: #ff9300; /* 設定顏色 */ /* Unicode folder icon */
+    font-size: 50px;
+    margin-bottom: 23px;
+}
+
+.add-dir:hover:before {
+    color: #FFFFFF/* Font Awesome 的 other icon */
+}
+
+.the-dir::before {
+    content: '\f07b'; /* Font Awesome 的 folder icon 的 Unicode */
+    font-family: 'Font Awesome 5 Free'; /* 確保使用正確的字體家族 */
+    font-weight: 900; /* Solid icons 需要使用 900 的字重 */
+    color: #ff9300; /* 設定顏色 */ /* Unicode folder icon */
+    font-size: 50px;
+    margin-bottom: 5px;
+}
+
+
+
+@media only screen and (max-width: 786px) {
+
+    #dir {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, 1fr);
+
+    }
+
+
+}
+
+.back-to-search, .back-to-nav {
+    font-weight: 900; /* Solid icons 需要使用 900 的字重 */
+    color: black; /* 設定顏色 */ /* Unicode folder icon */
+    font-size: 50px;
+}
+
+.show-type-nav-footer {
+    position: fixed;
+    bottom: 0;
+    background-color: darkorange;
+    display: flex;
+    width: 100%;
+    margin: 0;
+}
+
+.chapter_is {
+    font-size: 50px;
+    color: black;
+    justify-content: center;
+}
+
+.show-type-ul {
+    display: grid;
+    gap: 0px;
+    grid-template-rows: repeat(3, 1fr);
+    list-style-type:none;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+#show-type-nav {
+    text-align: left;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;/* 給予整個網頁高度，確保底部對齊可以發揮作用 */
+    margin: 0;
+    padding: 0;/* 移除預設邊距 */
+}
+
+#test-area {
+    margin: 0;
+    padding: 0;
+}
+
+
+
+.show-type-li{
+    font-size: 30px;
+    padding: 40px 0px;
+}
+
+
+#show-type-string:before {
+    content: "\f002";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 40px;
+    color: darkorange;
+}
+
+#show-type-all:before {
+    content: "\f02d";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 40px;
+    color: darkorange;
+}
+
+
+#show-type-chapter:before {
+    content: "\f03a";
+    font-family: 'Font Awesome 5 Free';
+    font-size: 40px;
+    color: darkorange;
+}
+
+#show-type-chapter:hover:before,
+#show-type-all:hover:before,
+#show-type-string:hover:before {
+    color: #FFFFFF;
+}
+
+#word-area p {
+  font-size: 18px;
+}
+
+#search-file-popup-content {
+  width: 80%;
+}
+
+#search-file-popup-content-public {
+  width: 80%;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.dropdown-toggle {
+ }
+
+ .dropdown-menu {
+    display: grid;
+    gap: 10px;
+ }
+
+ #search-file-ul {
+  display: grid;
+  max-height: 20%;
+}
+
+ #search-file-ul {
+  display: grid;
+  overflow-y: auto;
+  overflow: auto;
+  max-height: 600px;
+}
+
+ #search-file-ul-public {
+  display: grid;
+  overflow-y: auto;
+  overflow: auto;
+  max-height: 600px;
+}
+
+.dropdown-menu li {
+  padding: 15px 20px;
+  color: white;
+  width: 400px;
+  margin-left: 0px;
+  list-style: none;
+  margin-bottom: 10px;
+  border-left: 1px solid white;
+  overflow-y: auto;
+}
+
+
+
+
+.dropdown-menu li:hover {
+  background-color: #f5f5f5;
+  color: black;
+}
+
+#public-folder-title-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 0px;
+  flex-wrap: wrap;
+}
+
+#title-bar-button-area {
+  display: flex;
+  gap: 10px;
+}
+
+
+#title-bar-button-area button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: 1px solid white;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+    color: white;
+    background-color: black;
+}
+
+#public-folder-title-bar button:hover {
+  background-color: white;
+  color: black;
+}
+
+
+@media only screen and (max-width: 500px) {
+   #title-bar-button-area button {
+      border: none;
+      font-size: 12px;
+      margin-top: 0px;
+    }
+
+    #public-folder-title-bar {
+    display: block;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    margin-bottom: 0px;
+    flex-wrap: wrap;
+    }
+
+    #public-folder-file-title {
+      margin-bottom: 0px;
+    }
+
+
+}
+
+
+
+  
+#loading img {
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+}
+
+#chapter {
+   margin-right: 0px !important;
+   font-weight: bold;
+   box-sizing: border-box;
+   box-sizing: border-box;
+   font-size: 25px;
+   border: none;
+   z-index: 2;
+}
+
+#num {
+  text-align: left;
+  background-color: black;
+  font-size: 30px;
+  border: none;
+  outline: none;
+}
+
+@media only screen and (max-width: 500px) {
+  #chapter {
+    font-size: 20px;
+  } 
+
+  #num {
+    font-size: 20px;
+  }
+
+  #num-input-wrapper p{
+    font-size: 15px;
+  }
+
+}
+
+
+
+#num-input-wrapper p {
+  font-size: 20px;
+  margin-left: 50px;
+}
+
+#num-input-wrapper input {
+  background-color: black;
+}
+
+#search-law-form a {
+  text-align: left;
+  margin-left: 0px;
+
+}
+
+#num:after {
+  content: "§";
+  font-size: 200px;
+}
+
+#num:focus {
+  background-color: black; /* 焦點時保持背景為白色 */
+  /* 可以這裡設定其他焦點時的樣式，比如邊框顏色等 */
+}
+
+#chapter-input-wrapper a::before {
+  content: "";  
+  transform: rotate(45deg);
+  border-top:3px solid white;
+  margin-right: 10px;
+  height: 8px;
+  width: 8px;
+  border-right: 3px solid white;
+}
+
+
+/* 覆蓋 Chrome 自動填充的背景顏色 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+    -webkit-text-fill-color: white !important;
+    background-color: black !important;
+    box-shadow: 0 0 0px 1000px black inset !important;
+}
+
+
+#chapter-input-wrapper a {
+  display: flex;
+  position: relative;
+  align-items: center;
+  padding: 30px 0 30px 33px;
+ }
+
+
+#chapter-input-wrapper {
+  display: flex;
+  align-items: center;
+ }
+
+    
+#chapter-input-wrapper a::after {
+  content: ""; 
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  height: 80px;
+  width: 80px;
+  border: 2px solid darkorange;
+  border-radius: 50%;
+ }
+
+
+.header {
+  display: flex;
+}
+
+.main-li a {
+  z-index: 9999 !important;
+  position: relativeri}
+
+
+#record-area {
+  margin-left: 0px !important;
+  align-items: left;
+  align-content: left;
+  padding-left: 0px !important;
+}
+
+.catpng {
+  width: 60px;
+  border-radius: 50%;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute; 
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+
+input:checked + .slider {
+  background-color: darkorange;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px darkorange;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px)   ;
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+
+.catlog:after, .description:after {
+    display: block;
+    content: "";
+    position: absolute;
+    right: 0;
+    margin-left: 60px;
+    width: 97%;
+    height: 0.5px;
+    background-color: white; /* 設置底線顏色 */
+}
+
+#word-area h2, #public-folder-ck h2 {
+  font-weight: 500; /* 正確的 font-weight 應該是沒有單位的 */
+  line-height: 3rem;
+}
+
+
+#word-area h2:after, #public-folder-ck h2:after {
+    display: block;
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 93%; /* 根據需要可調整寬度 */
+    height: 0.5px;
+    background-color: white; /* 設置底線顏色 */
+}
+
+.catlog, .description {
+  font-size: 1.2rem;
+  font-weight: 500; /* 正確的 font-weight 應該是沒有單位的 */
+  line-height: 3rem;
+  margin-left: 40px;
+}
+
+#public-file-list-ul, #private-file-list-ul {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 20px;
+  width: 100%;
+}
+
+#folder-information-description {
+  margin-left: 5%;
+}
+
+#public-folder-file-word-area {
+  width: 100%;
+}
+
+#in-public-folder-name, #folder-information-title {
+  font-weight: 1000;
+  font-size: 2rem;
+  color: darkorange;
+}
+
+
+#in-public-folder-writer {
+  font-weight: 500;
+  font-size: 20px;
+}
+#public-file-word-area-first {
+ gap: 10px;
+ display: flex;
+ flex-direction: column;
+}
+
+#public-file-first-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.button-list {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+#folder-information-flex {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+#public-file-word-area-first-description {
+  margin-left: 5%;
+}
+
+.hide-law {
+  display: none;
+}
+
+.law-block-up::after {
+  content:"\f0d8" !important;
+  font-family: 'font awesome 5 free';
+  font-size: 20px;
+  margin-left: 10px;
+}
+
+.law-block-down::after {
+  content:"\f0d7" !important;
+  font-family: 'font awesome 5 free';
+  font-size: 20px;
+  margin-left: 10px;
+}
+
+.law-block-chapter-num::after {
+  content:"\f0d8";
+  font-family: 'font awesome 5 free';
+  font-size: 20px;
+  margin-left: 10px;
+}
+
+
+.law-block-chapter-num {
+  display: flex;
+  align-items: center;
+}
+
+input[type=checkbox]{
+	height: 0;
+	width: 0 !important;
+	visibility: hidden;
+  margin-left: 0px;
+}
+
+label {
+	cursor: pointer;
+	width: 70px;
+	height: 30px;
+	background: grey;
+	display: block;
+	border-radius: 100px;
+	position: relative;
+}
+
+label:after {
+	content: '';
+	position: absolute;
+	top: 5px;
+	left: 5px;
+	width: 20px;
+	height: 20px;
+	background: #fff;
+	border-radius: 90px;
+  transition: 0.7s;
+}
+
+
+
+input:checked + label {
+	background: #6f42c1;;
+}
+
+label:active:after {
+	width: 130px;
+}
+
+input:checked + label:after {
+	left: calc(100% - 5px);
+	transform: translateX(-100%);
+}
+
+#file-type {
+  position: absolute;
+  top: 87px;
+  font-size: 15px;
+  z-index: 1;
+  left: 30px;
+  display: none;
+}
+
+
+#folder-type {
+  position: absolute;
+  top: 87px;
+  font-size: 15px;
+  z-index: 1;
+  left: 50px;
+}
+
+.show-type-active {
+  color: darkorange;
+  font-weight: 500;
+}
+
+#public-folder-ck h2 {
+
+}

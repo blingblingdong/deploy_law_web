@@ -296,6 +296,16 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::delete_file);
 
+    let get_pdf = warp::get()
+        .and(warp::path("pdf"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::file::get_pdf);
+
+
     let insert_content = warp::post()
         .and(warp::path("law_block"))
         .and(warp::path::end())
@@ -353,6 +363,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(add_dir)
         .or(get_law_lines)
         .or(get_dir_pub)
+        .or(get_pdf)
         .or(are_you_in_redis)
         .or(get_file_list)
         .or(insert_content)

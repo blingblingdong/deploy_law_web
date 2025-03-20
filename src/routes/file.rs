@@ -15,10 +15,16 @@ use select::predicate::{Class, Name};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+use std::io::Write;
+use std::process::{Command, Stdio};
+use tokio::fs::{File as OtherFile};
+use tokio::io::AsyncReadExt;
 use tracing::{info, instrument};
 use uuid::Uuid;
+use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::client;
+use std::io::Read;
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_file(file).await {
@@ -140,7 +146,7 @@ pub async fn get_content_html(
             let parser = Parser::new_ext(&file.content, Options::all());
             let mut html_output = String::new();
             html::push_html(&mut html_output, parser);
-            let json_file = File {
+            let json_file = crate::types::file::File {
                 id: file.id,
                 content: html_output,
                 css: file.css,
@@ -249,6 +255,104 @@ pub async fn get_file_list2(
         vec.push(files.file_name.clone());
     });
     Ok(warp::reply::json(&vec))
+}
+
+pub async fn get_pdf(
+    user_name: String,
+    dir: String,
+    file_name: String,
+    store: Store, // 假設你已經有 Store 型別，它有 get_file 方法
+) -> Result<impl warp::Reply, warp::Rejection> {
+    // 解碼參數
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let dir = percent_decode_str(&dir).decode_utf8_lossy();
+    let file_name = percent_decode_str(&file_name).decode_utf8_lossy();
+    let id = format!("{}-{}-{}", user_name, dir, file_name);
+
+    // 從存儲取得檔案
+    let file = store
+        .get_file(id)
+        .await
+        .map_err(|e| warp::reject::custom(e))?;
+
+    // 讀取 CSS 檔案
+    let mut css_file = OtherFile::open("new_record.css")
+        .await
+        .unwrap();
+    let mut css = String::new();
+    css_file
+        .read_to_string(&mut css)
+        .await
+        .unwrap();
+
+    // 組合 HTML 內容
+    let format_html = format!(
+        "
+    <html>
+        <head><style>{}</style><meta charset='UTF-8'></head>
+        <body style='border:0; padding: 20px;'>
+            <div id='public-file-word-area-second'>
+                <div id='public-folder-title-bar'>
+                    <h1 id='public-folder-file-title'>{}</h1>
+                    <div id='title-bar-button-area'>
+                        <button id='public-search-file'>目錄</button>
+                        <button id='share-file' class='share-file'>分享</button>
+                        <button class='back_to_public_folder'>返回</button>
+                        <button id='public-first-page'>首頁</button>
+                    </div>
+                </div>
+                <div id='public-using-law'>{}</div>
+                <div id='content-table-area'>
+                    <h3>content table</h3>
+                    <ul id='content-table'>{}</ul>
+                </div>
+                <div id='public-folder-ck' class='ck-content ck-editor__editable ck'>{}</div>
+            </div>
+        </body>
+    </html>
+    ",
+        css,file.file_name, file.css, file.content_nav, file.content
+    );
+
+
+    // 使用 wkhtmltopdf 轉換 HTML 為 PDF
+    let mut command = Command::new("wkhtmltopdf");
+    command.arg("--margin-top")
+        .arg("0")
+        .arg("--margin-bottom")
+        .arg("0")
+        .arg("--margin-left")
+        .arg("0")
+        .arg("--margin-right")
+        .arg("0")
+        .arg("-") // 從標準輸入讀取 HTML
+        .arg("-") // 輸出到標準輸出
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    // 啟動命令
+    let mut child = command.spawn().unwrap();
+
+    // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(format_html.as_bytes())
+            .unwrap();
+    }
+
+    // 讀取 PDF 內容
+    let mut pdf_output = Vec::new();
+    let mut stdout = child.stdout.take().unwrap();
+    stdout
+        .read_to_end(&mut pdf_output)
+        .unwrap();
+
+    // 返回 PDF 檔案作為回應
+    Ok(Response::builder()
+        .header("Content-Type", "application/pdf")
+        .body(pdf_output)
+        .unwrap())
 }
 
 pub async fn delete_file(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
