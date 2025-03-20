@@ -37,6 +37,8 @@ COPY --from=builder /app/setup.toml ./
 COPY --from=builder /app/mydatabase.db ./
 COPY --from=builder /app/new_record.css ./
 COPY --from=builder /app/output.pdf ./
+COPY --from=builder /usr/bin/wkhtmltopdf /usr/bin/wkhtmltopdf
+
 CMD ["/app/law_web"]
 
 
