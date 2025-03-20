@@ -344,22 +344,32 @@ pub async fn get_pdf(
 
     // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
     if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(format_html.as_bytes())
-            .unwrap();
+        match stdin.write_all(format_html.as_bytes()) {
+            Ok(()) => { println!("寫入成功")},
+            Err(e) => {
+                eprintln!("Error writing to child stdin: {:?}", e);
+                return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
+            }
+        }
     }
+    // 等待 wkhtmltopdf 完成並捕獲所有輸出（stdout 和 stderr）
+    let output = child.wait_with_output().map_err(|e| {
+        eprintln!("Error waiting for wkhtmltopdf to finish: {:?}", e);
+        handle_errors::Error::TokenNotFound
+    })?;
 
-    // 讀取 PDF 內容
-    let mut pdf_output = Vec::new();
-    let mut stdout = child.stdout.take().unwrap();
-    stdout
-        .read_to_end(&mut pdf_output)
-        .unwrap();
+    // 檢查 wkhtmltopdf 的退出狀態
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("wkhtmltopdf failed: {}", stderr);
+        return Err(warp::reject::custom(handle_errors::Error::TokenNotFound
+        ));
+    }
 
     // 返回 PDF 檔案作為回應
     Ok(Response::builder()
         .header("Content-Type", "application/pdf")
-        .body(pdf_output)
+        .body(output.stdout)
         .expect("output failed"))
 }
 
