@@ -30,7 +30,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN wkhtmltopdf --version
 
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     libqt5webkit5
 
