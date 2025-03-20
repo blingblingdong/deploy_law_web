@@ -101,7 +101,7 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
             StatusCode::INTERNAL_SERVER_ERROR,
         ))
     } else if let Some(crate::Error::StdFileErroor(e)) = r.find() {
-        event!(Level::ERROR, "{}", "stdFile讀寫錯誤", e);
+        event!(Level::ERROR, "{}", e);
         Ok(warp::reply::with_status(
             "密碼錯誤".to_string(),
             StatusCode::UNAUTHORIZED,

@@ -343,7 +343,7 @@ pub async fn get_pdf(
 
     // 讀取 PDF 內容
     let mut pdf_output = Vec::new();
-    let mut stdout = child.stdout.take().map_err(|e|handle_errors::Error::StdFileErroor(e))?;
+    let mut stdout = child.stdout.take().unwrap();
     stdout
         .read_to_end(&mut pdf_output)
         .unwrap();
