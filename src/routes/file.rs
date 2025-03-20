@@ -283,7 +283,7 @@ pub async fn get_pdf(
     css_file
         .read_to_string(&mut css)
         .await
-        .expect("can't read");
+        .map_err(|e|handle_errors::Error::StdFileErroor(e))?;
 
     // 組合 HTML 內容
     let format_html = format!(
@@ -332,7 +332,7 @@ pub async fn get_pdf(
         .stderr(Stdio::piped());
 
     // 啟動命令
-    let mut child = command.spawn().expect("child command failed");
+    let mut child = command.spawn().map_err(|e|handle_errors::Error::StdFileErroor(e))?;
 
     // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
     if let Some(mut stdin) = child.stdin.take() {
@@ -343,7 +343,7 @@ pub async fn get_pdf(
 
     // 讀取 PDF 內容
     let mut pdf_output = Vec::new();
-    let mut stdout = child.stdout.take().unwrap();
+    let mut stdout = child.stdout.take().map_err(|e|handle_errors::Error::StdFileErroor(e))?;
     stdout
         .read_to_end(&mut pdf_output)
         .unwrap();

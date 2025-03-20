@@ -1,3 +1,8 @@
+use argon2::Error as ArgonError;
+use redis::RedisError;
+use reqwest::Error as ReqwestError;
+use std::io::Error as stdIoError;
+use tracing::{event, instrument, Level};
 #[allow(unused_imports)]
 use warp::{
     filters::{body::BodyDeserializeError, cors::CorsForbidden},
@@ -5,11 +10,6 @@ use warp::{
     reject::Reject,
     Rejection, Reply,
 };
-use tracing::{event, Level, instrument};
-use reqwest::Error as ReqwestError;
-use argon2::Error as ArgonError;
-use redis::RedisError;
-
 
 #[derive(Debug)]
 pub enum Error {
@@ -24,6 +24,7 @@ pub enum Error {
     Unauthorized,
     TokenNotFound,
     CacheError(RedisError),
+    StdFileErroor(stdIoError),
 }
 
 impl std::fmt::Display for Error {
@@ -34,7 +35,7 @@ impl std::fmt::Display for Error {
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::DatabaseQueryError(ref e) => {
                 write!(f, "Query not be excuted {}", e)
-            },
+            }
             Error::TokenNotFound => {
                 write!(f, "沒找到token!")
             }
@@ -43,18 +44,21 @@ impl std::fmt::Display for Error {
             }
             Error::WrongPassword => {
                 write!(f, "密碼錯誤")
-            },
+            }
             Error::CannotDecryptToken => {
                 write!(f, "密碼錯誤")
             }
             Error::ArgonLibraryError(_) => {
                 write!(f, "無法驗證帳號")
-            },
-            Error::CacheError(ref e)=> {
+            }
+            Error::CacheError(ref e) => {
                 write!(f, "redis錯誤{}", e)
-            },
+            }
             Error::ExternalAPIError(ref err) => {
                 write!(f, "cannot execute: {}", err)
+            }
+            Error::StdFileErroor(ref err) => {
+                write!(f, "std file 錯誤: {}", err)
             }
         }
     }
@@ -63,7 +67,6 @@ impl std::fmt::Display for Error {
 impl Reject for Error {}
 
 const DUPLICATE_KET: u32 = 23505;
-
 
 #[instrument]
 pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
@@ -92,16 +95,22 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
             StatusCode::UNPROCESSABLE_ENTITY,
         ))
     } else if let Some(crate::Error::ExternalAPIError(e)) = r.find() {
-       event!(Level::ERROR, "{}", e);
+        event!(Level::ERROR, "{}", e);
         Ok(warp::reply::with_status(
             "Internal Server Error".to_string(),
             StatusCode::INTERNAL_SERVER_ERROR,
         ))
+    } else if let Some(crate::Error::StdFileErroor(e)) = r.find() {
+        event!(Level::ERROR, "{}", "stdFile讀寫錯誤", e);
+        Ok(warp::reply::with_status(
+            "密碼錯誤".to_string(),
+            StatusCode::UNAUTHORIZED,
+        ))
     } else if let Some(crate::Error::WrongPassword) = r.find() {
         event!(Level::ERROR, "{}", "密碼錯誤");
         Ok(warp::reply::with_status(
-        "密碼錯誤".to_string(),
-        StatusCode::UNAUTHORIZED,
+            "密碼錯誤".to_string(),
+            StatusCode::UNAUTHORIZED,
         ))
     } else if let Some(crate::Error::TokenNotFound) = r.find() {
         event!(Level::ERROR, "{}", "找不到token錯誤");
@@ -114,8 +123,7 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
 
         match e {
             sqlx::Error::Database(err) => {
-                if err.code().unwrap().parse::<u32>().unwrap() ==
-                    DUPLICATE_KET {
+                if err.code().unwrap().parse::<u32>().unwrap() == DUPLICATE_KET {
                     Ok(warp::reply::with_status(
                         "已經存在相同帳號".to_string(),
                         StatusCode::UNPROCESSABLE_ENTITY,
@@ -126,13 +134,11 @@ pub async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
                         StatusCode::UNPROCESSABLE_ENTITY,
                     ))
                 }
-            },
-            _ => {
-                Ok(warp::reply::with_status(
-                    "無法更新資料".to_string(),
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                ))
             }
+            _ => Ok(warp::reply::with_status(
+                "無法更新資料".to_string(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )),
         }
     } else {
         Ok(warp::reply::with_status(
