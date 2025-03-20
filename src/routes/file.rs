@@ -332,7 +332,9 @@ pub async fn get_pdf(
         .stderr(Stdio::piped());
 
     // 啟動命令
-    let mut child = command.spawn().map_err(|e|handle_errors::Error::StdFileErroor(e))?;
+    let mut child = command.spawn().map_err(|e| {
+        eprintln!("Error spawning wkhtmltopdf: kind: {:?}, error: {}", e.kind(), e);
+        handle_errors::Error::StdFileErroor(e)})?;
 
     // 寫入 HTML 內容到 wkhtmltopdf 的標準輸入
     if let Some(mut stdin) = child.stdin.take() {
