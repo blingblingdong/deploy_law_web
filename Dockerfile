@@ -31,6 +31,9 @@ RUN wkhtmltopdf --version
 
 
 FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y \
+    libqt5webkit5
+
 WORKDIR /app
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/law_web ./
 COPY --from=builder /app/setup.toml ./
