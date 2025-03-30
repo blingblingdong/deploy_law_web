@@ -69,6 +69,14 @@ pub async fn get_pub_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejecti
     Ok(warp::reply::html(s))
 }
 
+pub async fn get_gallery_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
+
+    match stroe.get_directory_pub().await {
+        Ok(dirs) => Ok(warp::reply::json(&dirs)),
+        Err(e) => Err(warp::reject::custom(e)),
+    }
+}
+
 pub async fn add_dir(
     store: Store,
     directory: Directory,

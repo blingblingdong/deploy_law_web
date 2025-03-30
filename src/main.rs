@@ -2,11 +2,11 @@
 pub mod routes;
 mod store;
 pub mod types;
+use crate::types::note::Note;
 
 use crate::routes::file::{
     delete_file, get_content_markdown, get_file_list2, insert_content, update_content,
 };
-use crate::routes::law::{get_laws_by_text, get_on_law};
 use crate::routes::record::update_note;
 use crate::store::Store;
 use config::Config;
@@ -24,6 +24,18 @@ pub struct Args {
     log_level: String,
     port: u16,
 }
+
+/*
+#[tokio::main]
+async fn main() -> Result<(), handle_errors::Error> {
+    let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
+    let files = store
+        .get_note("test_user-民法物權-普通抵押權".to_string())
+        .await?;
+    std::fs::write("test.json", serde_json::to_string_pretty(&files).unwrap());
+    Ok(())
+}
+*/
 
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
@@ -99,10 +111,54 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::get_file_list);
 
+    let get_note_list = warp::get()
+        .and(warp::path("note_list"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and_then(routes::note::get_note_list);
+
+    let update_note = warp::put()
+        .and(warp::path("note"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::note::update_content);
+
+    let get_note = warp::get()
+        .and(warp::path("note"))
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and_then(routes::note::get_content);
+
+    let add_note = warp::post()
+        .and(warp::path("note"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::note::add_note);
+
+
+
+
+    let get_note_nav = warp::get()
+        .and(warp::path("note_nav"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::note::get_note_nav);
+
+
     let get_every_files = warp::get()
         .and(warp::path("every_file"))
         .and(store_filter.clone())
         .and_then(routes::file::get_every_files);
+
+    let get_every_notes = warp::get()
+        .and(warp::path("every_notes"))
+        .and(store_filter.clone())
+        .and_then(routes::note::get_every_note);
 
     let get_file_list2 = warp::get()
         .and(warp::path("file_list2"))
@@ -131,6 +187,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::directory::get_pub_dir);
 
+    let get_dir_gallery = warp::get()
+        .and(warp::path("gallery"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::directory::get_gallery_dir);
+
     let get_table = warp::get()
         .and(warp::path("questions"))
         .and(warp::path::param::<String>())
@@ -154,6 +216,20 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(law_filter.clone())
         .and_then(routes::law::get_all_lines);
+
+    let get_all_chapter = warp::get()
+        .and(warp::path("allChapter"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and_then(routes::law::get_all_chapter);
+
+    let get_all_lawList = warp::get()
+        .and(warp::path("all_lawList"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and_then(routes::law::get_all_lawList);
 
     let get_laws_by_text = warp::get()
         .and(warp::path("laws_by_text"))
@@ -199,6 +275,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::law::get_lines_by_chapter);
 
+    let get_lawList_by_chapter = warp::post()
+        .and(warp::path("lawList_by_chapter"))
+        .and(warp::path::end())
+        .and(law_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::law::get_lawList_by_chapter);
+
     let get_input_chapter = warp::get()
         .and(warp::path("input_chapter"))
         .and(warp::path::param::<String>())
@@ -206,14 +289,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(law_filter.clone())
         .and_then(routes::law::get_input_chapter);
 
-    let update_note = warp::put()
-        .and(warp::path("update_note"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(routes::authentication::auth())
-        .and(store_filter.clone())
-        .and(warp::body::json())
-        .and_then(routes::record::update_note);
 
     let add_file = warp::post()
         .and(warp::path("file"))
@@ -279,7 +354,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::param::<String>())
         .and(warp::path::end())
         .and(law_filter.clone())
-        .and_then(routes::law::get_on_law);
+        .and_then(routes::law::get_one_law);
 
     let get_law_lines = warp::get()
         .and(warp::path("law_lines"))
@@ -304,7 +379,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(store_filter.clone())
         .and_then(routes::file::get_pdf);
-
 
     let insert_content = warp::post()
         .and(warp::path("law_block"))
@@ -353,9 +427,16 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(get_every_notes)
+        .or(get_note_nav)
+        .or(get_note_list)
+        .or(add_note)
+        .or(get_note)
+        .or(update_note)
         .or(get_input_chapter)
         .or(update_file_name)
         .or(image)
+        .or(get_all_lawList)
         .or(update_dir)
         .or(get_dir_information)
         .or(upload_image)
@@ -378,20 +459,22 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(get_records_to_laws)
         .or(get_lines_by_chapter)
         .or(get_dir_for_pop)
+        .or(get_lawList_by_chapter)
         .or(delete_dir_by_name)
         .or(get_content_html)
-        .or(update_note)
         .or(add_file)
         .or(update_content)
         .or(delete_file)
         .or(get_laws_by_text)
         .or(get_file_list2)
         .or(get_every_files)
+        .or(get_all_chapter)
+        .or(get_dir_gallery)
         .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);
-
     warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
     Ok(())
 }
+

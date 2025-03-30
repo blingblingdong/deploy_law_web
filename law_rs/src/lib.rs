@@ -45,11 +45,65 @@ pub struct Laws {
     pub lines: Vec<crate::law>,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct OneLaw {
+    id: String,
+    href: String,
+    chapter: Vec<String>,
+    num: String,
+    lines: Vec<String>,
+}
+
+pub struct OneLawList {
+    list: Vec<OneLaw>
+}
+
+#[derive(Debug, serde::Deserialize, Clone, Serialize)]
+pub struct LawList {
+    pub chapter: Vec<String>,
+    pub laws: Vec<OneLaw>,
+}
+
+#[derive(Debug, serde::Deserialize, Clone, Serialize)]
+pub struct ChapterUl {
+    pub chapter: String,
+    pub level: usize,
+    pub childChapters: Vec<ChapterUl>,
+}
+
 impl crate::Laws {
     pub fn new() -> Self {
         crate::Laws { lines: Vec::new() }
     }
 
+
+
+    pub fn toOneLawList(&self) -> Result<Vec<OneLaw>> {
+        let mut list = Vec::new();
+        self.lines.iter().for_each(|law| {
+            let chapter: Vec<String> = law.chapter.split("/").map(|s| s.to_string()).collect();
+            let lines: Vec<String> = law
+                .line
+                .clone()
+                .into_iter()
+                .map(|line| {
+                    if (line.starts_with(law::indent)) {
+                        format!(" {}", line)
+                    } else {
+                        line
+                    }
+                })
+                .collect();
+            list.push(OneLaw {
+                id: law.id.clone(),
+                href: law.href.clone(),
+                chapter,
+                lines,
+                num: law.num.clone()
+            });
+        });
+        Ok(list)
+    }
     /*
     pub async fn from_lite_pool(db_url: &str) -> Result<Self, sqlx::Error> {
         let mut attempts = 0;
@@ -168,6 +222,14 @@ impl crate::Laws {
         Ok(html_text)
     }
 
+    pub fn get_chapterUlList(&self, chapter: String) -> Result<Vec<ChapterUl>, LawError> {
+        let binding = self.categories(0);
+        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+        let chapter_num = self.count_chapter();
+        let x= l.chapter_ul_list_create(1, chapter_num);
+        Ok(x)
+    }
+
     // 打印出html格式的章節選擇
     pub fn chapter_inputs_html(&self, father: String, level: usize, buffer: &mut String) {
         let map = self.categories(level);
@@ -190,6 +252,26 @@ impl crate::Laws {
                 }
             }
         }
+    }
+
+    pub fn chapter_ul_list_create(&self, level: usize, max_level: usize) -> Vec<ChapterUl> {
+        let mut list = Vec::new();
+        let map = self.categories(level); // 假設這回傳一個 IndexMap
+        for (chapter_name, laws) in &map {
+            let mut chapter_ul = ChapterUl {
+                chapter: chapter_name.clone(),
+                level,
+                childChapters: Vec::new(),
+            };
+            let max = laws.count_chapter();
+            println!("{max}");
+            if level < max-1 {
+                // 遞迴建立子章節列表
+                chapter_ul.childChapters = laws.chapter_ul_list_create(level + 1, max);
+            }
+            list.push(chapter_ul);
+        }
+        list
     }
 
     pub fn print_all_chapter_html(&self, level: usize, max_level: usize, html_text: &mut String) {
@@ -238,6 +320,25 @@ impl crate::Laws {
         }
     }
 
+    pub fn lawList_by_chapter(
+        &self,
+        chapter1: String,
+        chapter2: String,
+    ) -> Result<Vec<LawList>, LawError> {
+        let mut list: Vec<LawList> = Vec::new();
+        let mut buffer: Vec<String> = Vec::new();
+        let mut max_level: usize;
+        let num = chapter2.split("/").count();
+        match self.find_by_chapter(chapter1, chapter2) {
+            Ok(laws) => {
+                max_level = laws.count_chapter() - 1;
+                laws.lawList_push(num, &mut list, &mut buffer);
+                Ok(list)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn all_in_html(&self, chapter: String) -> Result<String, LawError> {
         let binding = self.categories(0);
         let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
@@ -245,6 +346,33 @@ impl crate::Laws {
         let mut html_text = String::new();
         l.print_all_html(0, &mut html_text);
         Ok(html_text)
+    }
+
+    pub fn lawList_create(&self, chapter: String) -> Result<Vec<LawList>, LawError> {
+        let binding = self.categories(0);
+        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+        let mut list: Vec<LawList> = Vec::new();
+        let mut buffer: Vec<String> = Vec::new();
+        l.lawList_push(0, &mut list, &mut buffer);
+        Ok(list)
+    }
+
+    pub fn lawList_push(&self, level: usize, list: &mut Vec<LawList>, buffer: &mut Vec<String>) {
+        let map1 = self.categories(level);
+        map1.iter().for_each(|(name, laws)| {
+            if laws.count_chapter() - 1 > level {
+                buffer.push(name.clone());
+                laws.lawList_push(level + 1, list, buffer);
+            } else {
+                let mut chapter = Vec::new();
+                if buffer.len() > 0 {
+                    buffer.iter().for_each(|s| chapter.push(s.clone()));
+                    buffer.clear();
+                }
+                chapter.push(name.clone());
+                list.push(LawList{chapter: chapter, laws: laws.clone().toOneLawList().unwrap()})
+            }
+        })
     }
 
     pub fn print_all_html(&self, level: usize, html_text: &mut String) {
@@ -403,7 +531,7 @@ impl crate::law {
         format!("{}第{}條", c, self.num)
     }
 
-    fn indent(c: char) -> bool {
+    pub fn indent(c: char) -> bool {
         let mut set = HashSet::new();
         set.extend([
             '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '第',

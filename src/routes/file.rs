@@ -16,18 +16,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Read;
-use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use tempfile::NamedTempFile;
 use tokio::fs::File as OtherFile;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{info, instrument};
 use uuid::Uuid;
 use warp::http::Response;
 use warp::http::StatusCode;
-use warp::hyper::client;
 
 pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_file(file).await {
@@ -325,7 +321,6 @@ pub async fn get_pdf(
         eprintln!("Temporary file not found: {}", tmp_path);
         return Err(warp::reject::custom(handle_errors::Error::TokenNotFound));
     }
-
 
     let wkhtmltopdf_url = std::env::var("WKHTMLTOPDF_URL").unwrap();
     // 使用 wkhtmltopdf 轉換 HTML 為 PDF

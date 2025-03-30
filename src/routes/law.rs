@@ -24,7 +24,9 @@ pub async fn get_table(
 
 #[derive(Deserialize, Serialize)]
 pub struct OneLaw {
-    chapter: String,
+    id: String,
+    href: String,
+    chapter: Vec<String>,
     num: String,
     lines: Vec<String>,
 }
@@ -70,7 +72,7 @@ pub async fn get_format_lines(
     }
 }
 
-pub async fn get_on_law(
+pub async fn get_one_law(
     cate: String,
     num: String,
     laws: Arc<Laws>,
@@ -80,12 +82,26 @@ pub async fn get_on_law(
     info!("獲取{cate}第{num}條");
     let x = format!("{}-{}", cate, num);
     if let Some(l) = laws.lines.iter().find(|&law| law.id == x) {
-        let one_law = OneLaw {
-            chapter: l.chapter.clone(),
+        let chapter: Vec<String> = l.chapter.split("/").map(|s| s.to_string()).collect();
+        let lines: Vec<String> = l
+            .line
+            .clone()
+            .into_iter()
+            .map(|line| {
+                if (line.starts_with(indent)) {
+                    format!(" {}", line)
+                } else {
+                    line
+                }
+            })
+            .collect();
+        Ok(warp::reply::json(&OneLaw {
+            id: l.id.clone(),
+            chapter: chapter,
             num: l.num.clone(),
-            lines: l.line.clone(),
-        };
-        Ok(warp::reply::json(&one_law))
+            href: l.href.clone(),
+            lines,
+        }))
     } else {
         Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
     }
@@ -98,6 +114,17 @@ pub async fn get_all_lines(
     let cate = percent_decode_str(&cate).decode_utf8_lossy();
     match laws.all_in_html(cate.to_string()) {
         Ok(n) => Ok(warp::reply::html(n)),
+        _ => Err(warp::reject::custom(handle_errors::Error::QuestionNotFound)),
+    }
+}
+
+pub async fn get_all_lawList(
+    cate: String,
+    laws: Arc<Laws>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let cate = percent_decode_str(&cate).decode_utf8_lossy();
+    match laws.lawList_create(cate.to_string()) {
+        Ok(n) => Ok(warp::reply::json(&n)),
         _ => Err(warp::reject::custom(handle_errors::Error::QuestionNotFound)),
     }
 }
@@ -154,6 +181,31 @@ pub async fn get_lines_by_chapter(
     let s = laws.chapter_lines_in_html(chapter.chapter1, chapter.chapter2);
     if s.is_ok() {
         Ok(warp::reply::html(s.unwrap()))
+    } else {
+        Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
+    }
+}
+
+pub async fn get_lawList_by_chapter(
+    laws: Arc<Laws>,
+    chapter: Chapter,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let s = laws.lawList_by_chapter(chapter.chapter1, chapter.chapter2);
+    if s.is_ok() {
+        Ok(warp::reply::json(&s.unwrap()))
+    } else {
+        Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
+    }
+}
+
+pub async fn get_all_chapter(
+    chapter: String,
+    laws: Arc<Laws>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let chapter = percent_decode_str(&chapter).decode_utf8_lossy();
+    let s = laws.get_chapterUlList(chapter.to_string());
+    if s.is_ok() {
+        Ok(warp::reply::json(&s.unwrap()))
     } else {
         Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
     }

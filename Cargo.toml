@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 law_rs = {path="law_rs"}
+note = {path="note"}
 bytes = "1.0"
 handle-errors = {path="handle-errors"}
 tokio = {version = "1.2", features = ["full"]}
@@ -35,7 +36,8 @@ dotenv = "0.15.0"
 futures = "0.3.30"
 select = '0.6.0'
 lol_html = "0.3"
-tempfile = "3.12.0"
+
+
 
 # 在 Cargo.toml 中
 [target.'cfg(target_os = "linux")'.dependencies]

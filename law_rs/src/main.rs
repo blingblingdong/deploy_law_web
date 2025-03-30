@@ -52,9 +52,9 @@ pub fn new_write_law(path: String, vec: Vec<New_Law>) -> anyhow::Result<(), Box<
 
 #[tokio::main]
 async fn main()  {
-    let binding = "下列土地不得為私有：一、海岸一定限度內之土地/二、天然形成之湖澤而為公共需用者，及其沿岸一定限度內之土地".to_string();
-    let x: Vec<&str> = binding.split(|c| c == '：' || c == '/').collect();
-    for i in x.clone() {
-        println!("{i}");
-    }
+    let law = Laws::from_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway")
+        .await.unwrap();
+    let x = law.lawList_create("民法".to_string()).unwrap();
+    println!("{:?}", x);
+
 }

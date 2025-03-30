@@ -1,6 +1,7 @@
 use crate::types::account::Account;
 use crate::types::directory::Directory;
 use crate::types::file::{File, Files};
+use crate::types::note::Note;
 use crate::types::record::{LawRecord, LawRecords};
 use argon2::Config;
 use log::error;
@@ -73,6 +74,24 @@ impl Store {
             .await
         {
             Ok(file) => Ok(Files { vec_files: file }),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_every_note(&self) -> Result<Vec<Note>, handle_errors::Error> {
+        match sqlx::query("SELECT * from note")
+            .map(|row: PgRow| Note {
+                id: row.get("id"),
+                content: row.get("content"),
+                footer: row.get("footer"),
+                user_name: row.get("user_name"),
+                directory: row.get("directory"),
+                file_name: row.get("file_name"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(note) => Ok(note),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
@@ -324,6 +343,135 @@ impl Store {
         .await
         {
             Ok(directory) => Ok(directory),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_note_user(
+        &self,
+        user_name: &str,
+        directory: &str,
+    ) -> Result<Vec<Note>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from note
+        WHERE user_name = $1 AND directory = $2",
+        )
+        .bind(user_name)
+        .bind(directory)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            content: row.get("content"),
+            footer: row.get("footer"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_the_note(
+        &self,
+        content: serde_json::Value,
+        id: String,
+    ) -> Result<Note, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE note 
+            SET content = $1
+            WHERE id = $2
+            RETURNING id, user_name, directory, file_name, content, footer",
+        )
+        .bind(content)
+        .bind(id)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            footer: row.get("footer"),
+            content: row.get("content"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_note(&self, id: String) -> Result<Note, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT id, user_name, directory, file_name, content, footer
+            FROM note
+            WHERE id = $1",
+        )
+        .bind(id)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            footer: row.get("footer"),
+            content: row.get("content"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn delete_note(&self, id: &str) -> Result<Note, handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM note
+            Where id = $1",
+        )
+        .bind(id)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            footer: row.get("footer"),
+            content: row.get("content"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_note(&self, note: Note) -> Result<Note, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO note (id, user_name, directory, file_name, content, footer)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, user_name, directory, file_name, content, footer",
+        )
+        .bind(note.id)
+        .bind(note.user_name)
+        .bind(note.directory)
+        .bind(note.file_name)
+        .bind(note.content)
+        .bind(note.footer)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            footer: row.get("footer"),
+            content: row.get("content"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(note) => Ok(note),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
