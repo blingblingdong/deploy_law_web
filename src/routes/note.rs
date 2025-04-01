@@ -1,93 +1,203 @@
 use crate::routes::record::NoteUpdate;
 use crate::store::Store;
+use crate::types::account::Redis_Database;
 use crate::types::file::File;
+use crate::types::note::Note;
 use crate::types::record;
 use bytes::BufMut;
 use futures::{StreamExt, TryStreamExt};
+use handle_errors::Error;
 use lol_html::element;
 use lol_html::{html_content::ContentType, HtmlRewriter, Settings};
+use note::{Block, InlineNode};
 #[allow(unused_imports)]
 use percent_encoding::percent_decode_str;
 use pulldown_cmark::{html, Options, Parser};
+use redis::aio::ConnectionManager;
+use redis::AsyncCommands;
 use select::document::Document;
 use select::predicate::Predicate;
 use select::predicate::{Class, Name};
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::from_value;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use handle_errors::Error;
-use note::{Block, InlineNode};
-use serde_json::from_value;
+use std::time::Instant;
 use tokio::fs::File as OtherFile;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{info, instrument};
 use uuid::Uuid;
 use warp::http::Response;
 use warp::http::StatusCode;
-use crate::types::note::Note;
 
-pub async fn add_note(store: Store, note: crate::types::note::Note) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn add_note(
+    store: Store,
+    note: crate::types::note::Note,
+) -> Result<impl warp::Reply, warp::Rejection> {
     match store.add_note(note).await {
         Ok(note) => {
             info!("成功新增：{}", note.id);
-            Ok(warp::reply::with_status("note added", StatusCode::OK))
-        }
-        Err(e) => Err(warp::reject::custom(e)),
-    }
-}
-
-
-pub async fn get_content(
-    id: String,
-    store: Store,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let id = percent_decode_str(&id).decode_utf8_lossy();
-    match store.get_note(id.to_string()).await {
-        Ok(note) => {
-            info!("成功獲取：{}", note.id);
             Ok(warp::reply::json(&note))
         }
         Err(e) => Err(warp::reject::custom(e)),
     }
 }
 
-#[derive(Deserialize, Serialize)]
+use flate2::read::GzDecoder;
+use flate2::{write::GzEncoder, Compression};
+use std::io::Read;
+use std::io::Write;
+
+pub async fn get_gzip_json<T: for<'de> serde::Deserialize<'de>>(
+    redis: &mut ConnectionManager,
+    key: &str,
+) -> redis::RedisResult<T> {
+    let compressed: Vec<u8> = redis.get(key).await?;
+
+    let mut decoder = GzDecoder::new(compressed.as_slice());
+    let mut json_str = String::new();
+    decoder.read_to_string(&mut json_str)?;
+
+    let value = serde_json::from_str(&json_str).unwrap();
+    Ok(value)
+}
+
+pub async fn set_gzip_json<T: serde::Serialize>(
+    redis: &mut ConnectionManager,
+    key: &str,
+    value: &T,
+) -> redis::RedisResult<()> {
+    // 序列化為 JSON
+    let json = serde_json::to_string(value).unwrap();
+    println!("原本的 length: {} bytes", json.len(),);
+
+    // GZIP 壓縮
+    let start = Instant::now();
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(json.as_bytes())?;
+    let compressed = encoder.finish()?;
+    println!("壓縮耗時{:?}", start.elapsed());
+    println!("壓縮後的 length: {} bytes", compressed.len());
+
+    // 寫入 Redis（注意傳的是 binary）
+    redis.set(key, compressed).await
+}
+
+pub async fn get_content(
+    id: String,
+    store: Store,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut redis, &id).await;
+    match redisResult {
+        Ok(block) => {
+            let parts: Vec<&str> = id.split("-").collect();
+            let writerName = parts[0];
+            let dirNmae = parts[1];
+            let noteName = parts[2];
+            let note = Note {
+                id: id.to_string(),
+                directory: dirNmae.to_string(),
+                user_name: writerName.to_string(),
+                footer: None,
+                content: Some(serde_json::to_value(&block).unwrap()),
+                file_name: noteName.to_string(),
+            };
+            return Ok(warp::reply::json(&note));
+        }
+        Err(_) => {
+            info!("not in redis");
+            match store.get_note(id.to_string()).await {
+                Ok(note) => {
+                    info!("成功獲取：{}", note.id);
+                    Ok(warp::reply::json(&note))
+                }
+                Err(e) => Err(warp::reject::custom(e)),
+            }
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct UpdateContent {
     content: String,
 }
 
+fn gzip_string(data: &str) -> Vec<u8> {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(data.as_bytes()).unwrap();
+    encoder.finish().unwrap()
+}
 
+use redis::pipe;
 pub async fn update_content(
     id: String,
-    store: Store,
+    mut redis: ConnectionManager,
     content: UpdateContent,
 ) -> Result<impl warp::Reply, warp::Rejection> {
+    let start = Instant::now();
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let content = update_nav(content.content);
     let jsonContent = note::parse_note(&content);
-    let res = match store
-        .update_the_note(serde_json::json!(jsonContent), id.to_string())
-        .await
-    {
-        Ok(note) => {
-            info!("成功更新筆記：{}", note.id);
-            note
-        }
-        Err(e) => return Err(warp::reject::custom(e)),
-    };
-    Ok(warp::reply::json(&res))
-}
+    let now = Instant::now();
 
+    let json = serde_json::to_string(&jsonContent).unwrap();
+    let compressed = gzip_string(&json);
+    let mut pipeline = pipe();
+    pipeline
+        .cmd("SADD")
+        .arg("noteIdSet")
+        .arg(&id)
+        .cmd("SET")
+        .arg(&id)
+        .arg(compressed);
+
+    let redis_start = Instant::now();
+    let _: () = pipeline
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+    println!(
+        "✅ Redis pipeline (SADD+SET) 耗時：{:?}",
+        redis_start.elapsed()
+    );
+
+    /*
+    let _: () = redis
+        .sadd("noteIdSet", &id)
+        .await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+
+
+    let _: () = set_gzip_json(&mut redis, &id, &jsonContent)
+        .await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+    */
+
+    let parts: Vec<&str> = id.split("-").collect();
+    let writerName = parts[0];
+    let dirNmae = parts[1];
+    let noteName = parts[2];
+    let note = Note {
+        id: id.to_string(),
+        directory: dirNmae.to_string(),
+        user_name: writerName.to_string(),
+        footer: None,
+        content: Some(serde_json::to_value(jsonContent).unwrap()),
+        file_name: noteName.to_string(),
+    };
+    println!("🚀 update_content 總耗時：{:?}", start.elapsed());
+    Ok(warp::reply::json(&note))
+}
 
 pub async fn get_every_note(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let notes = store.get_every_note().await?;
     Ok(warp::reply::json(&notes))
 }
-
-
 
 pub async fn get_note_list(
     user_name: String,
@@ -106,7 +216,6 @@ pub async fn get_note_list(
     }
     Ok(warp::reply::json(&buffer))
 }
-
 
 /*
 pub async fn get_pdf(
@@ -265,31 +374,35 @@ pub fn update_nav(file_content: String) -> String {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct H2Nav{
+pub struct H2Nav {
     id: String,
     text: String,
     children: Vec<H3Nav>,
 }
 
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct H3Nav{
+pub struct H3Nav {
     id: String,
     text: String,
 }
 
-
-
-pub async fn get_note_nav(id: String, store: Store)-> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_note_nav(id: String, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let mut h2NavVec = Vec::new();
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let note = store.get_note(id.to_string()).await?;
-    let mut buffer = H2Nav{id: "".to_string(), text: "".to_string(), children: Vec::new()};
+    let mut buffer = H2Nav {
+        id: "".to_string(),
+        text: "".to_string(),
+        children: Vec::new(),
+    };
     if let Some(content) = note.content {
         let blocks: Vec<Block> = from_value(content).unwrap();
         for block in blocks {
             match block {
-                Block::H2 { attributes, children} => {
+                Block::H2 {
+                    attributes,
+                    children,
+                } => {
                     let mut id = "".to_string();
                     if let Some(id2) = attributes.unwrap().id {
                         id = id2;
@@ -297,7 +410,7 @@ pub async fn get_note_nav(id: String, store: Store)-> Result<impl warp::Reply, w
                     let mut vec = Vec::new();
                     for child in children {
                         match child {
-                            InlineNode::Text { text, attributes} => {
+                            InlineNode::Text { text, attributes } => {
                                 vec.push(text);
                             }
                             _ => {}
@@ -308,7 +421,10 @@ pub async fn get_note_nav(id: String, store: Store)-> Result<impl warp::Reply, w
                     buffer.id = id.to_string();
                     buffer.text = vec.join("").clone();
                 }
-                Block::H3 { attributes, children } => {
+                Block::H3 {
+                    attributes,
+                    children,
+                } => {
                     let mut id = "".to_string();
                     if let Some(id2) = attributes.unwrap().id {
                         id = id2;
@@ -316,19 +432,21 @@ pub async fn get_note_nav(id: String, store: Store)-> Result<impl warp::Reply, w
                     let mut vec = Vec::new();
                     for child in children {
                         match child {
-                            InlineNode::Text { text, attributes} => {
+                            InlineNode::Text { text, attributes } => {
                                 vec.push(text);
                             }
                             _ => {}
                         }
                     }
-                    let h3nav = H3Nav {id: id.to_string(), text: vec.join("").clone()};
+                    let h3nav = H3Nav {
+                        id: id.to_string(),
+                        text: vec.join("").clone(),
+                    };
                     buffer.children.push(h3nav);
                 }
                 _ => {}
             }
         }
-
     }
 
     /*
@@ -352,6 +470,5 @@ pub async fn get_note_nav(id: String, store: Store)-> Result<impl warp::Reply, w
 
      */
     h2NavVec.push(buffer.clone());
-    println!("{:#?}", &h2NavVec);
     Ok(warp::reply::json(&h2NavVec))
 }

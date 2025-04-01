@@ -1,5 +1,6 @@
+use core::option::Option;
 use select::document::Document;
-use select::node::Node;
+use select::node::{Children, Node};
 use select::predicate::{Class, Name, Or};
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -12,6 +13,20 @@ pub struct Note {
     // 可以加入其他元資料，例如標題、作者等
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Line {
+    pub line_type: String,
+    pub attributes: Option<Attributes>,
+    pub children: Vec<InlineNode>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LawCard {
+    pub chapter: String,
+    pub num: String,
+    pub lines: Vec<Line>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Block {
@@ -21,7 +36,6 @@ pub enum Block {
     },
     CustomCard {
         card_type: String,
-        attributes: Option<Attributes>,
         data: Option<serde_json::Value>,
     },
     H2 {
@@ -137,12 +151,12 @@ fn parse_inline_nodes(node: &Node) -> Vec<InlineNode> {
                 }
                 "img" => {
                     let attr = Attributes {
-                        id: node.attr("id").map(|s| s.to_string()),
-                        class: node.attr("class").map(|s| s.to_string()),
-                        style: node.attr("style").map(|s| s.to_string()),
-                        src: node.attr("src").map(|s| s.to_string()),
-                        width: node.attr("width").map(|s| s.to_string()),
-                        height: node.attr("height").map(|s| s.to_string()),
+                        id: child.attr("id").map(|s| s.to_string()),
+                        class: child.attr("class").map(|s| s.to_string()),
+                        style: child.attr("style").map(|s| s.to_string()),
+                        src: child.attr("src").map(|s| s.to_string()),
+                        width: child.attr("width").map(|s| s.to_string()),
+                        height: child.attr("height").map(|s| s.to_string()),
                     };
                     nodes.push(InlineNode::Img {
                         attributes: Some(attr),
@@ -151,9 +165,9 @@ fn parse_inline_nodes(node: &Node) -> Vec<InlineNode> {
                 "p" => {
                     let children = parse_inline_nodes(&child);
                     let attr = Attributes {
-                        id: node.attr("id").map(|s| s.to_string()),
-                        class: node.attr("class").map(|s| s.to_string()),
-                        style: node.attr("style").map(|s| s.to_string()),
+                        id: child.attr("id").map(|s| s.to_string()),
+                        class: child.attr("class").map(|s| s.to_string()),
+                        style: child.attr("style").map(|s| s.to_string()),
                         src: None,
                         width: None,
                         height: None,
@@ -175,7 +189,7 @@ fn parse_inline_nodes(node: &Node) -> Vec<InlineNode> {
     nodes
 }
 
-fn parse_law_card_from_node(node: &select::node::Node) -> LawCardData {
+fn parse_law_card_from_node(node: &select::node::Node) -> LawCard {
     let chapter = node
         .find(Class("law-block-chapter"))
         .next()
@@ -186,7 +200,47 @@ fn parse_law_card_from_node(node: &select::node::Node) -> LawCardData {
         .next()
         .map(|n| n.text())
         .unwrap_or_default();
-    LawCardData { chapter, num }
+    let mut buffer = Vec::new();
+
+    let lineNode = node.find(Class("law-block-lines")).next().unwrap();
+
+    if let Some(lawblockline) = lineNode.find(Class("law-block-line")).next() {
+        let children = parse_inline_nodes(&lawblockline);
+        let attributes = Attributes {
+            id: None,
+            class: lawblockline.attr("class").map(|s| s.to_string()),
+            style: lawblockline.attr("style").map(|s| s.to_string()),
+            src: None,
+            width: None,
+            height: None,
+        };
+        buffer.push(Line {
+            line_type: "normal".to_string(),
+            attributes: Some(attributes),
+            children,
+        })
+    } else if let Some(lawindent) = lineNode.find(Class("law-indent")).next() {
+        let children = parse_inline_nodes(&lawindent);
+        let attributes = Attributes {
+            id: None,
+            class: lawindent.attr("class").map(|s| s.to_string()),
+            style: lawindent.attr("style").map(|s| s.to_string()),
+            src: None,
+            width: None,
+            height: None,
+        };
+        buffer.push(Line {
+            line_type: "indent".to_string(),
+            attributes: Some(attributes),
+            children,
+        })
+    }
+
+    LawCard {
+        chapter,
+        num,
+        lines: buffer,
+    }
 }
 
 /// 使用 select crate 解析 HTML，並依照文件中順序建立 Note 結構
@@ -209,17 +263,8 @@ pub fn parse_note(html: &str) -> Vec<Block> {
                 .unwrap_or(false)
         {
             let law_card_data = parse_law_card_from_node(&node);
-            let attributes = Attributes {
-                id: node.attr("id").map(|s| s.to_string()),
-                class: node.attr("class").map(|s| s.to_string()),
-                style: node.attr("style").map(|s| s.to_string()),
-                src: None,
-                width: None,
-                height: None,
-            };
             blocks.push(Block::CustomCard {
                 card_type: "law".to_string(),
-                attributes: Some(attributes),
                 data: Some(serde_json::to_value(law_card_data).unwrap()),
             });
         } else if node_name.unwrap() == "blockquote" {
@@ -275,7 +320,7 @@ pub fn parse_note(html: &str) -> Vec<Block> {
                 id: node.attr("id").map(|s| s.to_string()),
                 class: node.attr("class").map(|s| s.to_string()),
                 style: node.attr("style").map(|s| s.to_string()),
-                src: None,
+                src: node.attr("src").map(|s| s.to_string()),
                 width: None,
                 height: None,
             };

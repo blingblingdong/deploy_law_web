@@ -1,21 +1,17 @@
 #![recursion_limit = "512"]
 pub mod routes;
 mod store;
+use redis::aio::ConnectionManager;
+use redis::{AsyncCommands, Client};
 pub mod types;
-use crate::types::note::Note;
-
-use crate::routes::file::{
-    delete_file, get_content_markdown, get_file_list2, insert_content, update_content,
-};
-use crate::routes::record::update_note;
-use crate::store::Store;
+pub mod utils;
 use config::Config;
 #[allow(unused_imports)]
 use handle_errors::return_error;
 use law_rs::Laws;
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::sync::Arc;
+use tokio::time::{interval, Duration};
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Method, Filter};
 
@@ -25,14 +21,25 @@ pub struct Args {
     port: u16,
 }
 
+#[macro_export]
+macro_rules! trace_async {
+    ($label:expr, $expr:expr) => {
+        $crate::utils::trace::trace_async($label, $expr).await
+    };
+}
+
 /*
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
     let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
     let files = store
-        .get_note("test_user-民法物權-普通抵押權".to_string())
+        .get_every_file()
         .await?;
-    std::fs::write("test.json", serde_json::to_string_pretty(&files).unwrap());
+    for file in files.vec_files {
+        let content = note::parse_note(&file.content);
+        let x = store.update_the_note(serde_json::json!(content), file.id).await.unwrap();
+        println!("{}", x.id);
+    }
     Ok(())
 }
 */
@@ -86,6 +93,13 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 創建warp的filter來重用已加載的laws
     let law_filter = warp::any().map(move || laws_shared.clone());
 
+    // 建立redis資料庫聯繫
+    let redis_url = std::env::var("REDIS_PUBLIC_URL").unwrap_or("redis://127.0.0.1/".to_string());
+    println!("{}", redis_url);
+    let client = Client::open(redis_url).unwrap();
+    let manager = ConnectionManager::new(client).await.unwrap();
+    let redis_filter = warp::any().map(move || manager.clone());
+
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["Content-Type", "Authorization"])
@@ -122,7 +136,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path("note"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(store_filter.clone())
+        .and(redis_filter.clone())
         .and(warp::body::json())
         .and_then(routes::note::update_content);
 
@@ -130,6 +144,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path("note"))
         .and(warp::path::param::<String>())
         .and(store_filter.clone())
+        .and(redis_filter.clone())
         .and_then(routes::note::get_content);
 
     let add_note = warp::post()
@@ -139,16 +154,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::note::add_note);
 
-
-
-
     let get_note_nav = warp::get()
         .and(warp::path("note_nav"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
         .and(store_filter.clone())
         .and_then(routes::note::get_note_nav);
-
 
     let get_every_files = warp::get()
         .and(warp::path("every_file"))
@@ -289,7 +300,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(law_filter.clone())
         .and_then(routes::law::get_input_chapter);
 
-
     let add_file = warp::post()
         .and(warp::path("file"))
         .and(warp::path::end())
@@ -422,11 +432,25 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and_then(routes::authentication::are_you_in_redis);
 
+    // 3. 建立路由：GET /get?key=xxx
+    let get_route = warp::path("get")
+        .and(warp::query::<std::collections::HashMap<String, String>>())
+        .and(redis_filter.clone())
+        .and_then(handle_get);
+
+    // 4. 路由：POST /set?key=xxx&value=yyy
+    let set_route = warp::path("set")
+        .and(warp::query::<std::collections::HashMap<String, String>>())
+        .and(redis_filter.clone())
+        .and_then(handle_set);
+
     // let static_files = warp::fs::dir("static");
 
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(set_route)
+        .or(get_route)
         .or(get_every_notes)
         .or(get_note_nav)
         .or(get_note_list)
@@ -475,6 +499,48 @@ async fn main() -> Result<(), handle_errors::Error> {
         .recover(return_error);
     warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
+    /*
+    tokio::spawn(async {
+        let mut interval = interval(Duration::from_secs(250));
+
+        loop {
+            interval.tick().await;
+            let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
+            let mut redis_database = Redis_Database::new(&redis_url).await
+                .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+            let exists_or_not: Result<Option<String>, redis::RedisError> = redis_database.connection.get(&).await;
+            let x =
+
+
+        }
+    });
+    */
+
     Ok(())
 }
 
+// GET handler
+async fn handle_get(
+    params: std::collections::HashMap<String, String>,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let key = params.get("key").cloned().unwrap_or_default();
+    let result: redis::RedisResult<String> = redis.get(&key).await;
+
+    Ok(match result {
+        Ok(val) => format!("Value: {}", val),
+        Err(_) => "Key not found".to_string(),
+    })
+}
+
+// SET handler
+async fn handle_set(
+    params: std::collections::HashMap<String, String>,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let key = params.get("key").cloned().unwrap_or_default();
+    let value = params.get("value").cloned().unwrap_or_default();
+
+    let _: redis::RedisResult<()> = redis.set(&key, &value).await;
+    Ok(format!("Saved key={} value={}", key, value))
+}
