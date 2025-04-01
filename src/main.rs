@@ -4,7 +4,6 @@ mod store;
 use redis::aio::ConnectionManager;
 use redis::{AsyncCommands, Client};
 pub mod types;
-pub mod utils;
 use config::Config;
 #[allow(unused_imports)]
 use handle_errors::return_error;
