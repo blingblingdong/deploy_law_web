@@ -189,7 +189,7 @@ fn parse_inline_nodes(node: &Node) -> Vec<InlineNode> {
     nodes
 }
 
-fn parse_law_card_from_node(node: &select::node::Node) -> LawCard {
+fn parse_law_card_from_node(node: &Node) -> LawCard {
     let chapter = node
         .find(Class("law-block-chapter"))
         .next()
@@ -202,38 +202,32 @@ fn parse_law_card_from_node(node: &select::node::Node) -> LawCard {
         .unwrap_or_default();
     let mut buffer = Vec::new();
 
-    let lineNode = node.find(Class("law-block-lines")).next().unwrap();
+    if let Some(line_node) = node.find(Class("law-block-lines")).next() {
+        for li in line_node.find(Or(Name("li"), Name("div"))) {
+            let class = li.attr("class").unwrap_or_default();
+            let line_type = if class.contains("law-block-line") {
+                "normal"
+            } else if class.contains("law-indent") {
+                "indent"
+            } else {
+                continue;
+            };
 
-    if let Some(lawblockline) = lineNode.find(Class("law-block-line")).next() {
-        let children = parse_inline_nodes(&lawblockline);
-        let attributes = Attributes {
-            id: None,
-            class: lawblockline.attr("class").map(|s| s.to_string()),
-            style: lawblockline.attr("style").map(|s| s.to_string()),
-            src: None,
-            width: None,
-            height: None,
-        };
-        buffer.push(Line {
-            line_type: "normal".to_string(),
-            attributes: Some(attributes),
-            children,
-        })
-    } else if let Some(lawindent) = lineNode.find(Class("law-indent")).next() {
-        let children = parse_inline_nodes(&lawindent);
-        let attributes = Attributes {
-            id: None,
-            class: lawindent.attr("class").map(|s| s.to_string()),
-            style: lawindent.attr("style").map(|s| s.to_string()),
-            src: None,
-            width: None,
-            height: None,
-        };
-        buffer.push(Line {
-            line_type: "indent".to_string(),
-            attributes: Some(attributes),
-            children,
-        })
+            let children = parse_inline_nodes(&li);
+            let attributes = Attributes {
+                id: None,
+                class: li.attr("class").map(|s| s.to_string()),
+                style: li.attr("style").map(|s| s.to_string()),
+                src: None,
+                width: None,
+                height: None,
+            };
+            buffer.push(Line {
+                line_type: line_type.to_string(),
+                attributes: Some(attributes),
+                children,
+            });
+        }
     }
 
     LawCard {

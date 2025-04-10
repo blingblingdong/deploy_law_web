@@ -86,11 +86,14 @@ async fn main() -> Result<(), handle_errors::Error> {
     let law = Laws::from_pool(&db_url)
         .await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
-
     let laws_shared = Arc::new(law);
-
-    // 創建warp的filter來重用已加載的laws
     let law_filter = warp::any().map(move || laws_shared.clone());
+
+    let new_law = crate::types::new_law::NewLaws::from_pool(&db_url)
+        .await
+        .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
+    let new_laws_shared = Arc::new(new_law);
+    let new_law_filter = warp::any().map(move || new_laws_shared.clone());
 
     // 建立redis資料庫聯繫
     let redis_url = std::env::var("REDIS_PUBLIC_URL").unwrap_or("redis://127.0.0.1/".to_string());
@@ -231,15 +234,15 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path("allChapter"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_all_chapter);
+        .and(new_law_filter.clone())
+        .and_then(routes::new_law::get_all_chapter);
 
     let get_all_lawList = warp::get()
         .and(warp::path("all_lawList"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_all_lawList);
+        .and(new_law_filter.clone())
+        .and_then(routes::new_law::get_all_lawList);
 
     let get_laws_by_text = warp::get()
         .and(warp::path("laws_by_text"))
@@ -288,9 +291,9 @@ async fn main() -> Result<(), handle_errors::Error> {
     let get_lawList_by_chapter = warp::post()
         .and(warp::path("lawList_by_chapter"))
         .and(warp::path::end())
-        .and(law_filter.clone())
+        .and(new_law_filter.clone())
         .and(warp::body::json())
-        .and_then(routes::law::get_lawList_by_chapter);
+        .and_then(routes::new_law::get_lawList_by_chapter);
 
     let get_input_chapter = warp::get()
         .and(warp::path("input_chapter"))
@@ -362,8 +365,8 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::param::<String>())
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_one_law);
+        .and(new_law_filter.clone())
+        .and_then(routes::new_law::get_one_law);
 
     let get_law_lines = warp::get()
         .and(warp::path("law_lines"))
