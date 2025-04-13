@@ -1,0 +1,28 @@
+[package]
+name = "otherlawresource"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0.209", features = ["derive"] }
+indexmap = "2.5.0"
+anyhow = "1.0.86"
+csv = "1.3.0"
+regex = "1"
+tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread", "macros"] }
+serde_json = "1.0"
+uuid = { version = "0.8", features = ["v4"]}
+select = "0.6"
+reqwest = { version = "0.11",features = ["blocking", "json"]}
+futures = "0.3"
+new_law = {path= "../new_law"}
+chrono = { version = "0.4.40"}
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10.32", features = ["vendored"] }
+
+
+[dependencies.sqlx]
+version = "0.6"
+features = [ "runtime-tokio-rustls", "migrate", "postgres",]
