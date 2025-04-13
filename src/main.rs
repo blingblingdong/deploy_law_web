@@ -82,6 +82,40 @@ async fn main() -> Result<(), handle_errors::Error> {
     let db_url = std::env::var("DATABASE_PUBLIC_URL").unwrap();
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
+
+
+    let mut new_inters = store.clone().get_newinterpretations().await?;
+    new_inters.sort_by(|a, b|{
+        (a.year, a.number).cmp(&(b.year, b.number))
+    });
+    let new_inter_shared = Arc::new(new_inters);
+    let new_inters_filter = warp::any().map(move || new_inter_shared.clone());
+
+    let mut old_inters = store.clone().get_all_oldinterpretation().await?;
+    old_inters.sort_by(|a, b|{
+        let a_num = a.id.parse().unwrap_or(0);
+        let b_num = b.id.parse().unwrap_or(0);
+        a_num.cmp(&b_num)
+    });
+    let old_inter_shared = Arc::new(old_inters);
+    let old_inters_filter = warp::any().map(move || old_inter_shared.clone());
+
+    let mut resolutions = store.clone().get_all_resolution().await?;
+    resolutions.sort_by(|a, b|{
+        (a.year, a.time).cmp(&(b.year, b.time))
+    });
+    let resolution_shared = Arc::new(resolutions);
+    let resolution_filter = warp::any().map(move || resolution_shared.clone());
+
+    let mut precedents = store.clone().get_all_precedents().await?;
+    precedents.sort_by(|a, b|{
+        (a.year, a.num).cmp(&(b.year, b.num))
+    });
+    precedents.reverse();
+    let precedents_shared = Arc::new(precedents);
+    let pecedent_filter = warp::any().map(move || precedents_shared.clone());
+
+
     let store_filter = warp::any().map(move || store.clone());
     let law = Laws::from_pool(&db_url)
         .await
@@ -92,7 +126,7 @@ async fn main() -> Result<(), handle_errors::Error> {
     let new_law = crate::types::new_law::NewLaws::from_pool(&db_url)
         .await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
-    let new_laws_shared = Arc::new(new_law);
+    let new_laws_shared = Arc::new(new_law.categories(0));
     let new_law_filter = warp::any().map(move || new_laws_shared.clone());
 
     // 建立redis資料庫聯繫
@@ -428,6 +462,87 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::authentication::login);
 
+    let get_newinters = warp::get()
+        .and(warp::path("inter"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_newinter);
+
+    let get_oldinters = warp::get()
+        .and(warp::path("oldinter"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_oldinter);
+
+    let get_precedents = warp::get()
+        .and(warp::path("precedent"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_precedents);
+
+    let get_precedent_list = warp::get()
+        .and(warp::path("precedentlist"))
+        .and(warp::path::end())
+        .and(pecedent_filter.clone())
+        .and_then(routes::otherlawresource::get_precedent_list);
+
+    let get_precedent_by_id = warp::get()
+        .and(warp::path!("precedent" / String)) // 動態取得 id
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_precedent_by_id);
+
+    let get_resolutions = warp::get()
+        .and(warp::path("resolution"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_resolutions);
+
+    let get_newinter_by_id = warp::get()
+        .and(warp::path!("newinterpretation" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_newinter_by_id);
+
+    let get_oldinter_by_id = warp::get()
+        .and(warp::path!("oldinterpretation" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_oldinter_by_id);
+
+    let get_resolution_by_id = warp::get()
+        .and(warp::path!("resolution" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_resolution_by_id);
+
+    let get_oldinter_list = warp::get()
+        .and(warp::path!("oldinterpretationlist"))
+        .and(warp::path::end())
+        .and(old_inters_filter.clone())
+        .and_then(routes::otherlawresource::get_oldinter_list);
+
+    let get_lawname_list = warp::get()
+        .and(warp::path!("lawnamelist"))
+        .and(warp::path::end())
+        .and(new_law_filter.clone())
+        .and_then(routes::otherlawresource::get_all_lawname_list);
+
+    let get_newinter_list = warp::get()
+        .and(warp::path!("newinterpretationlist"))
+        .and(warp::path::end())
+        .and(new_inters_filter.clone())
+        .and_then(routes::otherlawresource::get_newinter_list);
+
+    let get_resolution_list = warp::get()
+        .and(warp::path!("resolutionlist"))
+        .and(warp::path::end())
+        .and(resolution_filter.clone())
+        .and_then(routes::otherlawresource::get_resolution_list);
+
+
+
+
     let are_you_in_redis = warp::post()
         .and(warp::path("find_token_in_redis"))
         .and(warp::path::param::<String>())
@@ -451,6 +566,19 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(get_lawname_list)
+        .or(get_precedent_by_id)
+        .or(get_newinter_by_id)
+        .or(get_oldinter_by_id)
+        .or(get_resolution_by_id)
+        .or(get_oldinter_list)
+        .or(get_precedent_list)
+        .or(get_resolution_list)
+        .or(get_newinter_list)
+        .or(get_newinters)
+        .or(get_oldinters)
+        .or(get_precedents)
+        .or(get_resolutions)
         .or(set_route)
         .or(get_route)
         .or(get_every_notes)

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use indexmap::{IndexMap, IndexSet};
 use law_rs::*;
 use select::document::Document;
@@ -11,6 +12,7 @@ use std::error::Error;
 use std::fmt::format;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+
 
 #[derive(Debug)]
 pub enum LawError {
@@ -115,11 +117,9 @@ impl NewLaws {
         map
     }
 
-    pub fn get_chapterUlList(&self, chapter: String) -> Result<Vec<ChapterUl>, LawError> {
-        let binding = self.categories(0);
-        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+    pub fn get_chapterUlList(&self) -> Result<Vec<ChapterUl>, LawError> {
         let chapter_num = self.count_chapter();
-        let x = l.chapter_ul_list_create(1, chapter_num);
+        let x = self.chapter_ul_list_create(1, chapter_num);
         Ok(x)
     }
 
@@ -162,12 +162,10 @@ impl NewLaws {
         }
     }
 
-    pub fn lawList_create(&self, chapter: String) -> Result<Vec<LawList>, LawError> {
-        let binding = self.categories(0);
-        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+    pub fn lawList_create(&self) -> Result<Vec<LawList>, LawError> {
         let mut list: Vec<LawList> = Vec::new();
         let mut buffer: Vec<String> = Vec::new();
-        l.lawList_push(0, &mut list, &mut buffer);
+        self.lawList_push(0, &mut list, &mut buffer);
         Ok(list)
     }
 

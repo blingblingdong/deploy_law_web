@@ -696,4 +696,270 @@ impl Store {
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
+
+    pub async fn get_newinterpretations(
+        self,
+    ) -> Result<Vec<otherlawresource::NewInterpretation>, handle_errors::Error> {
+        match sqlx::query("SELECT * from newinterpretations")
+            .map(|row: PgRow| otherlawresource::NewInterpretation {
+                id: row.get("id"),
+                content: row.get("content"),
+                no: row.get("no"),
+                date: row.get("date"),
+                reason: row.get("reason"),
+                related_law: row.get("related_law"),
+                source: row.get("source"),
+                name: row.get("name"),
+                year: row.get("year"),
+                number: row.get("number"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(inters) => Ok(inters),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_newinterpretations_list(
+        &self,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query("SELECT id, name FROM newinterpretations")
+            .map(|row: PgRow| {
+                otherlawresource::OtherSourceList{
+                id: row.get("id"),
+                name: row.get("name"),
+                sourcetype: "newinterpretation".to_string()
+            }})
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+        pub async fn get_newinterpretation_by_id(
+            &self,
+            id: String,
+        ) -> Result<otherlawresource::NewInterpretation, handle_errors::Error> {
+            match sqlx::query("SELECT * FROM newinterpretations WHERE id = $1")
+                .bind(id)
+                .map(|row: PgRow| otherlawresource::NewInterpretation {
+                    id: row.get("id"),
+                    content: row.get("content"),
+                    no: row.get("no"),
+                    date: row.get("date"),
+                    reason: row.get("reason"),
+                    related_law: row.get("related_law"),
+                    source: row.get("source"),
+                    name: row.get("name"),
+                    year: row.get("year"),
+                    number: row.get("number"),
+                })
+                .fetch_one(&self.connection)
+                .await
+            {
+                Ok(res) => Ok(res),
+                Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+            }
+        }
+
+
+
+    pub async fn get_all_resolution(
+        self,
+    ) -> Result<Vec<otherlawresource::Resolution>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM resolution")
+            .map(|row: PgRow| otherlawresource::Resolution {
+                id: row.get("id"),
+                lawtype: row.get("lawtype"),
+                related_law: row.get("related_law"),
+                name: row.get("name"),
+                content: row.get("content"),
+                source: row.get("source"),
+                year: row.get("year"),
+                time: row.get("time"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(resolutions) => Ok(resolutions),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_resolutions_list(
+        &self,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query("SELECT id, name FROM resolution")
+            .map(|row: PgRow| {
+                otherlawresource::OtherSourceList{
+                    id: row.get("id"),
+                    name: row.get("name"),
+                    sourcetype: "resolution".to_string()
+                }})
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_resolution_by_id(
+        &self,
+        id: String,
+    ) -> Result<otherlawresource::Resolution, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM resolution WHERE id = $1")
+            .bind(id)
+            .map(|row: PgRow| otherlawresource::Resolution {
+                id: row.get("id"),
+                lawtype: row.get("lawtype"),
+                related_law: row.get("related_law"),
+                name: row.get("name"),
+                content: row.get("content"),
+                source: row.get("source"),
+                year: row.get("year"),
+                time: row.get("time"),
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(res) => Ok(res),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+
+    pub async fn get_all_oldinterpretation(
+        &self,
+    ) -> Result<Vec<otherlawresource::OldInterpretation>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM oldinterpretations")
+            .map(|row: PgRow| otherlawresource::OldInterpretation {
+                id: row.get("id"),
+                date: row.get("date"),
+                reasoning: row.get("reasoning"),
+                content: row.get("content"),
+                trouble: row.get("trouble"),
+                related_law: row.get("related_law"),
+                source: row.get("source"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(result) => Ok(result),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_oldinterpretations_list(
+        &self,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query("SELECT id FROM oldinterpretations")
+            .map(|row: PgRow| {
+                let id: String = row.get("id");
+                let name = format!("大法官解釋{}", id.clone());
+                otherlawresource::OtherSourceList{
+                    id: id.clone(),
+                    name: name,
+                    sourcetype: "oldinterpretation".to_string()
+                }})
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_oldinter_by_id(
+        &self,
+        id: String,
+    ) -> Result<otherlawresource::OldInterpretation, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM oldinterpretations WHERE id = $1")
+            .bind(id)
+            .map(|row: PgRow| otherlawresource::OldInterpretation {
+                id: row.get("id"),
+                date: row.get("date"),
+                reasoning: row.get("reasoning"),
+                content: row.get("content"),
+                trouble: row.get("trouble"),
+                related_law: row.get("related_law"),
+                source: row.get("source"),
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(res) => Ok(res),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+
+    pub async fn get_all_precedents(
+        &self,
+    ) -> Result<Vec<otherlawresource::Precedent>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM precedents")
+            .map(|row: PgRow| otherlawresource::Precedent {
+                id: row.get("id"),
+                name: row.get("name"),
+                holding: row.get("holding"),
+                source: row.get("source"),
+                year: row.get("year"),
+                num: row.get("num"),
+                specific: row.get("specific"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(precedents) => Ok(precedents),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_precedentlist(
+        &self,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query("SELECT id, name FROM precedents")
+            .map(|row: PgRow| otherlawresource::OtherSourceList{
+                id: row.get("id"),
+                name: row.get("name"),
+                sourcetype: "precedent".to_string()
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+    pub async fn get_precedent_by_id(
+        &self,
+        id: String,
+    ) -> Result<otherlawresource::Precedent, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM precedents WHERE id = $1")
+            .bind(id)
+            .map(|row: PgRow| otherlawresource::Precedent {
+                id: row.get("id"),
+                name: row.get("name"),
+                holding: row.get("holding"),
+                source: row.get("source"),
+                year: row.get("year"),
+                num: row.get("num"),
+                specific: row.get("specific"),
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(prec) => Ok(prec),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
 }
+

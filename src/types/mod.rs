@@ -6,4 +6,5 @@ pub mod lawinform;
 pub mod note;
 pub mod record;
 pub(crate) mod new_law;
+mod newinterpretation;
 

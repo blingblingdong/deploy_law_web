@@ -1,3 +1,4 @@
+use crate::store::Store;
 use law_rs::{law, Laws};
 #[allow(unused_imports)]
 use percent_encoding::percent_decode_str;

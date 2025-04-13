@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 law_rs = {path="law_rs"}
 note = {path="note"}
+otherlawresource = {path="otherlawresource"}
 bytes = "1.0"
 handle-errors = {path="handle-errors"}
 tokio = {version = "1.2", features = ["full"]}
