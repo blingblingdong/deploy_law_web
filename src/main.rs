@@ -28,6 +28,7 @@ macro_rules! trace_async {
 }
 
 /*
+
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
     let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
@@ -41,7 +42,9 @@ async fn main() -> Result<(), handle_errors::Error> {
     }
     Ok(())
 }
-*/
+
+ */
+
 
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
@@ -97,6 +100,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         let b_num = b.id.parse().unwrap_or(0);
         a_num.cmp(&b_num)
     });
+    old_inters.reverse();
     let old_inter_shared = Arc::new(old_inters);
     let old_inters_filter = warp::any().map(move || old_inter_shared.clone());
 
@@ -195,6 +199,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::param::<String>())
         .and(warp::path::end())
         .and(store_filter.clone())
+        .and(redis_filter.clone())
         .and_then(routes::note::get_note_nav);
 
     let get_every_files = warp::get()
@@ -296,8 +301,8 @@ async fn main() -> Result<(), handle_errors::Error> {
     let get_all_chapters = warp::get()
         .and(warp::path("all_chapters"))
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_all_chapters);
+        .and(new_law_filter.clone())
+        .and_then(routes::new_law::get_all_chapters);
 
     let add_record = warp::post()
         .and(warp::path("questions"))
@@ -674,3 +679,5 @@ async fn handle_set(
     let _: redis::RedisResult<()> = redis.set(&key, &value).await;
     Ok(format!("Saved key={} value={}", key, value))
 }
+
+

@@ -14,11 +14,11 @@ pub async fn get_newinter(store: Store) -> Result<impl warp::Reply, warp::Reject
     }
 }
 
-pub async fn get_newinter_list(vec: Arc<Vec<otherlawresource::NewInterpretation>>) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_newinter_list(vec: Arc<Vec<otherlawresource::NewInter>>) -> Result<impl warp::Reply, warp::Rejection> {
     let list: Vec<_> = vec.iter()
         .map(|item| {otherlawresource::OtherSourceList{
             id: item.id.clone(),
-            name: item.no.clone(),
+            name: item.name.clone(),
             sourcetype: "newinterpretation".to_string()
         }}).collect();
 

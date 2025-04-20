@@ -21,6 +21,101 @@ pub struct NewInterpretation {
     pub number: i16,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NewInter {
+    pub id: String,
+    pub casename: String,
+    pub name: String,
+    pub date: String,
+    pub casesummary: Option<String>,
+    pub maincontent: Vec<String>,
+    pub reason: String,
+    pub related_law: Option<String>,
+    pub source: String,
+    pub year: i16,
+    pub number: i16,
+    pub reflaws: Vec<String>,
+}
+
+pub async fn get_newinterpretations(pool: &PgPool) -> Vec<NewInterpretation> {
+    match sqlx::query("SELECT * from newinterpretations")
+        .map(|row: PgRow| NewInterpretation {
+            id: row.get("id"),
+            content: row.get("content"),
+            no: row.get("no"),
+            date: row.get("date"),
+            reason: row.get("reason"),
+            related_law: row.get("related_law"),
+            source: row.get("source"),
+            name: row.get("name"),
+            year: row.get("year"),
+            number: row.get("number"),
+        })
+        .fetch_all(pool)
+        .await
+    {
+        Ok(inters) => inters,
+        Err(e) => {
+            eprintln!("Database query failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+pub async fn get_newinters(pool: &PgPool) -> Vec<NewInter> {
+    match sqlx::query("SELECT * from newinterpretations")
+        .map(|row: PgRow| NewInter {
+            id: row.get("id"),
+            casename: row.get("casename"),
+            casesummary: row.get("casesummary"),
+            maincontent: row.get("maincontent"),
+            date: row.get("date"),
+            reason: row.get("reason"),
+            related_law: row.get("related_law"),
+            source: row.get("source"),
+            name: row.get("name"),
+            year: row.get("year"),
+            number: row.get("number"),
+            reflaws: row.get("reflaws"),
+        })
+        .fetch_all(pool)
+        .await
+    {
+        Ok(inters) => inters,
+        Err(e) => {
+            eprintln!("Database query failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+impl NewInter {
+    pub async fn add_to_pool(self, pool: &PgPool) {
+        match sqlx::query(
+            "INSERT INTO newinters (id, casename, name, casesummary, date, reason, maincontent, related_law, source, year, number, reflaws)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+        )
+        .bind(self.id)
+        .bind(self.casename)
+        .bind(self.name)
+        .bind(self.casesummary)
+        .bind(self.date)
+        .bind(self.reason)
+        .bind(self.maincontent)
+        .bind(self.related_law)
+        .bind(self.source)
+        .bind(self.year)
+        .bind(self.number)
+        .bind(self.reflaws)
+        .execute(pool)
+        .await
+        {
+            Ok(_) => println!("Insert successful"),
+            Err(e) => eprintln!("Insert failed: {}", e),
+        }
+    }
+}
+
 impl NewInterpretation {
     pub async fn add_to_pool(self, pool: &PgPool) {
         let uuid = Uuid::new_v4().to_string();
@@ -112,13 +207,16 @@ pub struct OldInterpretation {
     pub trouble: Option<String>,
     pub related_law: Option<String>,
     pub source: String,
+    pub reflaws: Option<Vec<String>>,
+    pub reflawid: Option<Vec<String>>,
+    pub refinter: Option<Vec<String>>,
 }
 
 impl OldInterpretation {
     pub async fn add_to_pool(self, pool: &PgPool) {
         match sqlx::query(
-            "INSERT INTO oldinterpretations (id, date, reasoning, content, trouble, related_law, source)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO oldinters (id, date, reasoning, content, trouble, related_law, source, reflaws, reflawid, refinter)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(self.id)
         .bind(self.date)
@@ -127,6 +225,29 @@ impl OldInterpretation {
         .bind(self.trouble)
         .bind(self.related_law)
         .bind(self.source)
+        .bind(self.reflaws)
+        .bind(self.reflawid)
+        .bind(self.refinter)
+        .execute(pool)
+        .await
+        {
+            Ok(_) => println!("Insert successful"),
+            Err(e) => eprintln!("Insert failed: {}", e),
+        }
+    }
+
+    pub async fn update(&self, pool: &PgPool) {
+        match sqlx::query(
+            "UPDATE oldinters 
+            SET content = $1, reasoning = $2, reflaws = $3, reflawid = $4, refinter = $5
+            WHERE id = $6",
+        )
+        .bind(self.content.clone())
+        .bind(self.reasoning.clone())
+        .bind(self.reflaws.clone())
+        .bind(self.reflawid.clone())
+        .bind(self.refinter.clone())
+        .bind(self.id.clone())
         .execute(pool)
         .await
         {
@@ -136,7 +257,32 @@ impl OldInterpretation {
     }
 }
 
-pub async fn scrapeOldInterpretation(num: String, trouble: String) -> OldInterpretation {
+pub async fn get_all_oldinterpretation(pool: &PgPool) -> Vec<OldInterpretation> {
+    match sqlx::query("SELECT * FROM oldinters")
+        .map(|row: PgRow| OldInterpretation {
+            id: row.get("id"),
+            date: row.get("date"),
+            reasoning: row.get("reasoning"),
+            content: row.get("content"),
+            trouble: row.get("trouble"),
+            related_law: row.get("related_law"),
+            source: row.get("source"),
+            reflaws: row.get("reflaws"),
+            reflawid: row.get("reflawid"),
+            refinter: row.get("refinter"),
+        })
+        .fetch_all(pool)
+        .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("Insert failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+pub async fn scrapeOldInterpretation(num: String) -> OldInterpretation {
     let href = format!(
         "https://mojlaw.moj.gov.tw/LawContentExShow.aspx?id=D%2C{}&type=c&kw=",
         num.clone()
@@ -145,12 +291,15 @@ pub async fn scrapeOldInterpretation(num: String, trouble: String) -> OldInterpr
     let doc = Document::from(html.as_str());
     let mut inter = OldInterpretation {
         id: num.to_string(),
-        trouble: Some(trouble),
+        trouble: None,
         related_law: None,
         date: "".to_string(),
         reasoning: None,
         content: None,
         source: href.clone(),
+        reflaws: Some(Vec::new()),
+        reflawid: Some(Vec::new()),
+        refinter: Some(Vec::new()),
     };
     for pre in doc.find(Name("pre")) {
         if (pre.text().starts_with("理 由 書：")) {

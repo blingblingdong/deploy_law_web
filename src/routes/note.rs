@@ -386,89 +386,83 @@ pub struct H3Nav {
     text: String,
 }
 
-pub async fn get_note_nav(id: String, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_note_nav(id: String, store: Store, mut redis: ConnectionManager,) -> Result<impl warp::Reply, warp::Rejection> {
     let mut h2NavVec = Vec::new();
     let id = percent_decode_str(&id).decode_utf8_lossy();
-    let note = store.get_note(id.to_string()).await?;
+    let mut blocks: Vec<Block>;
+
+    let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut redis, &id).await;
+    match redisResult {
+        Ok(block) => {
+            blocks = block;
+        }
+        Err(_) => {
+            info!("not in redis");
+            match store.get_note(id.to_string()).await {
+                Ok(note) => {
+                    blocks = from_value(note.content.into()).unwrap();
+                }
+                Err(e) => return Err(warp::reject::custom(e)),
+            }
+        }
+    }
+
     let mut buffer = H2Nav {
         id: "".to_string(),
         text: "".to_string(),
         children: Vec::new(),
     };
-    if let Some(content) = note.content {
-        let blocks: Vec<Block> = from_value(content).unwrap();
-        for block in blocks {
-            match block {
-                Block::H2 {
-                    attributes,
-                    children,
-                } => {
-                    let mut id = "".to_string();
-                    if let Some(id2) = attributes.unwrap().id {
-                        id = id2;
-                    }
-                    let mut vec = Vec::new();
-                    for child in children {
-                        match child {
-                            InlineNode::Text { text, attributes } => {
-                                vec.push(text);
-                            }
-                            _ => {}
-                        }
-                    }
-                    h2NavVec.push(buffer.clone());
-                    buffer.children = Vec::new();
-                    buffer.id = id.to_string();
-                    buffer.text = vec.join("").clone();
+
+    for block in blocks {
+        match block {
+            Block::H2 {
+                attributes,
+                children,
+            } => {
+                let mut id = "".to_string();
+                if let Some(id2) = attributes.unwrap().id {
+                    id = id2;
                 }
-                Block::H3 {
-                    attributes,
-                    children,
-                } => {
-                    let mut id = "".to_string();
-                    if let Some(id2) = attributes.unwrap().id {
-                        id = id2;
-                    }
-                    let mut vec = Vec::new();
-                    for child in children {
-                        match child {
-                            InlineNode::Text { text, attributes } => {
-                                vec.push(text);
-                            }
-                            _ => {}
+                let mut vec = Vec::new();
+                for child in children {
+                    match child {
+                        InlineNode::Text { text, attributes } => {
+                            vec.push(text);
                         }
+                        _ => {}
                     }
-                    let h3nav = H3Nav {
-                        id: id.to_string(),
-                        text: vec.join("").clone(),
-                    };
-                    buffer.children.push(h3nav);
                 }
-                _ => {}
+                h2NavVec.push(buffer.clone());
+                buffer.children = Vec::new();
+                buffer.id = id.to_string();
+                buffer.text = vec.join("").clone();
             }
+            Block::H3 {
+                attributes,
+                children,
+            } => {
+                let mut id = "".to_string();
+                if let Some(id2) = attributes.unwrap().id {
+                    id = id2;
+                }
+                let mut vec = Vec::new();
+                for child in children {
+                    match child {
+                        InlineNode::Text { text, attributes } => {
+                            vec.push(text);
+                        }
+                        _ => {}
+                    }
+                }
+                let h3nav = H3Nav {
+                    id: id.to_string(),
+                    text: vec.join("").clone(),
+                };
+                buffer.children.push(h3nav);
+            }
+            _ => {}
         }
     }
-
-    /*
-    let document = Document::from(content.content.as_str());
-    let mut buffer = H2Nav{id: "".to_string(), text: "".to_string(), children: Vec::new()};
-    document.find(Name("h2").or(Name("h3"))).for_each(|x| {
-        let id = x.attr("id").unwrap_or("no");
-        let name = x.name().unwrap_or("h2");
-        let text = x.text();
-        if name == "h2"   {
-            h2NavVec.push(buffer.clone());
-            buffer.children = Vec::new();
-            buffer.id = id.to_string();
-            buffer.text = text.clone();
-
-        } else if name == "h3" {
-            let h3nav = H3Nav {id: id.to_string(), text};
-            buffer.children.push(h3nav);
-        }
-    });
-
-     */
     h2NavVec.push(buffer.clone());
     Ok(warp::reply::json(&h2NavVec))
 }

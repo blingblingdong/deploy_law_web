@@ -699,12 +699,13 @@ impl Store {
 
     pub async fn get_newinterpretations(
         self,
-    ) -> Result<Vec<otherlawresource::NewInterpretation>, handle_errors::Error> {
-        match sqlx::query("SELECT * from newinterpretations")
-            .map(|row: PgRow| otherlawresource::NewInterpretation {
+    ) -> Result<Vec<otherlawresource::NewInter>, handle_errors::Error> {
+        match sqlx::query("SELECT * from newinters")
+            .map(|row: PgRow| otherlawresource::NewInter {
                 id: row.get("id"),
-                content: row.get("content"),
-                no: row.get("no"),
+                casename: row.get("casename"),
+                casesummary: row.get("casesummary"),
+                maincontent: row.get("maincontent"),
                 date: row.get("date"),
                 reason: row.get("reason"),
                 related_law: row.get("related_law"),
@@ -712,6 +713,7 @@ impl Store {
                 name: row.get("name"),
                 year: row.get("year"),
                 number: row.get("number"),
+                reflaws: row.get("reflaws"),
             })
             .fetch_all(&self.connection)
             .await
@@ -724,7 +726,7 @@ impl Store {
     pub async fn get_newinterpretations_list(
         &self,
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
-        match sqlx::query("SELECT id, name FROM newinterpretations")
+        match sqlx::query("SELECT id, name FROM newinters")
             .map(|row: PgRow| {
                 otherlawresource::OtherSourceList{
                 id: row.get("id"),
@@ -743,13 +745,14 @@ impl Store {
         pub async fn get_newinterpretation_by_id(
             &self,
             id: String,
-        ) -> Result<otherlawresource::NewInterpretation, handle_errors::Error> {
-            match sqlx::query("SELECT * FROM newinterpretations WHERE id = $1")
+        ) -> Result<otherlawresource::NewInter, handle_errors::Error> {
+            match sqlx::query("SELECT * FROM newinters WHERE id = $1")
                 .bind(id)
-                .map(|row: PgRow| otherlawresource::NewInterpretation {
+                .map(|row: PgRow| otherlawresource::NewInter {
                     id: row.get("id"),
-                    content: row.get("content"),
-                    no: row.get("no"),
+                    casename: row.get("casename"),
+                    casesummary: row.get("casesummary"),
+                    maincontent: row.get("maincontent"),
                     date: row.get("date"),
                     reason: row.get("reason"),
                     related_law: row.get("related_law"),
@@ -757,6 +760,7 @@ impl Store {
                     name: row.get("name"),
                     year: row.get("year"),
                     number: row.get("number"),
+                    reflaws: row.get("reflaws"),
                 })
                 .fetch_one(&self.connection)
                 .await
@@ -837,7 +841,7 @@ impl Store {
     pub async fn get_all_oldinterpretation(
         &self,
     ) -> Result<Vec<otherlawresource::OldInterpretation>, handle_errors::Error> {
-        match sqlx::query("SELECT * FROM oldinterpretations")
+        match sqlx::query("SELECT * FROM oldinters")
             .map(|row: PgRow| otherlawresource::OldInterpretation {
                 id: row.get("id"),
                 date: row.get("date"),
@@ -846,6 +850,9 @@ impl Store {
                 trouble: row.get("trouble"),
                 related_law: row.get("related_law"),
                 source: row.get("source"),
+                reflaws: row.get("reflaws"),
+                reflawid: row.get("reflawid"),
+                refinter: row.get("refinter"),
             })
             .fetch_all(&self.connection)
             .await
@@ -858,7 +865,7 @@ impl Store {
     pub async fn get_oldinterpretations_list(
         &self,
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
-        match sqlx::query("SELECT id FROM oldinterpretations")
+        match sqlx::query("SELECT id FROM oldinters")
             .map(|row: PgRow| {
                 let id: String = row.get("id");
                 let name = format!("大法官解釋{}", id.clone());
@@ -879,7 +886,7 @@ impl Store {
         &self,
         id: String,
     ) -> Result<otherlawresource::OldInterpretation, handle_errors::Error> {
-        match sqlx::query("SELECT * FROM oldinterpretations WHERE id = $1")
+        match sqlx::query("SELECT * FROM oldinters WHERE id = $1")
             .bind(id)
             .map(|row: PgRow| otherlawresource::OldInterpretation {
                 id: row.get("id"),
@@ -889,6 +896,9 @@ impl Store {
                 trouble: row.get("trouble"),
                 related_law: row.get("related_law"),
                 source: row.get("source"),
+                reflaws: row.get("reflaws"),
+                reflawid: row.get("reflawid"),
+                refinter: row.get("refinter"),
             })
             .fetch_one(&self.connection)
             .await

@@ -17,6 +17,11 @@ reqwest = { version = "0.11",features = ["blocking", "json"]}
 futures = "0.3"
 new_law = {path= "../new_law"}
 chrono = { version = "0.4.40"}
+aho-corasick = "1"
+rayon = "1"
+chinese-number = "0.6"
+fancy-regex = "0.11"
+
 
 
 [target.'cfg(target_os = "linux")'.dependencies]

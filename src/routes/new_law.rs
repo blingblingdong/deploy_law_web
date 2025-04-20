@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use indexmap::IndexMap;
+use law_rs::{law, Laws};
 use tracing::{info, instrument};
 
 
@@ -56,6 +57,7 @@ pub async fn get_lawList_by_chapter(
     map: Arc<IndexMap<String, NewLaws>>,
     chapter: Chapter,
 ) -> Result<impl warp::Reply, warp::Rejection> {
+    println!("{}：{}", chapter.chapter1, chapter.chapter2);
     let mut laws =
         map.get(&chapter.chapter1.to_string()).ok_or(LawError::NOThisChapter)
             .map_err(|_| warp::reject::custom(handle_errors::Error::QuestionNotFound))?.to_owned();
@@ -64,12 +66,8 @@ pub async fn get_lawList_by_chapter(
             .partial_cmp(&to_f32(b.num.clone()))
             .unwrap()
     });
-    let s = laws.lawList_by_chapter(chapter.chapter1, chapter.chapter2);
-    if s.is_ok() {
-        Ok(warp::reply::json(&s.unwrap()))
-    } else {
-        Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
-    }
+    laws.lines.retain(|law| law.chapter.join("/").contains(&chapter.chapter2));
+    Ok(warp::reply::json(&laws.lines))
 }
 
 pub async fn get_all_chapter(
@@ -104,4 +102,11 @@ fn to_f32(s: String) -> f32 {
     }
 }
 
-
+pub async fn get_all_chapters(map: Arc<IndexMap<String, NewLaws>>,) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut s = String::new();
+    for key in map.keys().filter(|&chapter| chapter != "") {
+        let format_key = format!("<option value='{}'>", key);
+        s.push_str(&format_key);
+    }
+    Ok(warp::reply::html(s))
+}
