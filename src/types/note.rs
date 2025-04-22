@@ -9,5 +9,6 @@ pub struct Note {
     pub user_name: String,
     pub directory: String,
     pub file_name: String,
+    pub public: bool,
 }
 

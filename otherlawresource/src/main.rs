@@ -445,7 +445,9 @@ fn replace_the_text(text: &str) -> String {
     // 2.將刑法法替換為中華民國刑法
     let textformat2 = textfromat1
         .replace("刑法第", "中華民國刑法第")
-        .replace("中華民國中華民國", "中華民國");
+        .replace("中華民國中華民國", "中華民國")
+        .replace("刑法中華民國刑法第", "中華民國刑法第");
+
     textformat2
 }
 
@@ -456,7 +458,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let pool = Arc::new(pool);
     let mut handles = Vec::new();
 
-    for num in 807..808 {
+    for num in 715..814 {
         let permit = semaphore.clone().acquire_owned().await.unwrap();
         let pool = pool.clone();
 

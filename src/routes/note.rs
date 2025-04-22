@@ -106,6 +106,7 @@ pub async fn get_content(
                 footer: None,
                 content: Some(serde_json::to_value(&block).unwrap()),
                 file_name: noteName.to_string(),
+                public: true
             };
             return Ok(warp::reply::json(&note));
         }
@@ -189,6 +190,7 @@ pub async fn update_content(
         footer: None,
         content: Some(serde_json::to_value(jsonContent).unwrap()),
         file_name: noteName.to_string(),
+        public: true
     };
     println!("🚀 update_content 總耗時：{:?}", start.elapsed());
     Ok(warp::reply::json(&note))

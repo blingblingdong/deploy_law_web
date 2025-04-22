@@ -87,6 +87,7 @@ impl Store {
                 user_name: row.get("user_name"),
                 directory: row.get("directory"),
                 file_name: row.get("file_name"),
+                public: row.get("public")
             })
             .fetch_all(&self.connection)
             .await
@@ -365,11 +366,35 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
+            public: row.get("public")
         })
         .fetch_all(&self.connection)
         .await
         {
             Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_notelist_user(
+        &self,
+        user_name: &str,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from note
+        WHERE user_name = $1 AND public = $2",
+        )
+            .bind(user_name)
+            .bind(true)
+            .map(|row: PgRow| otherlawresource::OtherSourceList {
+                id: row.get("id"),
+                name: row.get("file_name"),
+                sourcetype: "note".to_string(),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
@@ -383,7 +408,7 @@ impl Store {
             "UPDATE note 
             SET content = $1
             WHERE id = $2
-            RETURNING id, user_name, directory, file_name, content, footer",
+            RETURNING id, user_name, directory, file_name, content, footer, public",
         )
         .bind(content)
         .bind(id)
@@ -394,6 +419,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
+            public: row.get("public")
         })
         .fetch_one(&self.connection)
         .await
@@ -405,7 +431,7 @@ impl Store {
 
     pub async fn get_note(&self, id: String) -> Result<Note, handle_errors::Error> {
         match sqlx::query(
-            "SELECT id, user_name, directory, file_name, content, footer
+            "SELECT id, user_name, directory, file_name, content, footer, public
             FROM note
             WHERE id = $1",
         )
@@ -417,6 +443,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
+            public: row.get("public")
         })
         .fetch_one(&self.connection)
         .await
@@ -439,6 +466,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
+            public: row.get("public")
         })
         .fetch_one(&self.connection)
         .await
@@ -450,9 +478,9 @@ impl Store {
 
     pub async fn add_note(&self, note: Note) -> Result<Note, handle_errors::Error> {
         match sqlx::query(
-            "INSERT INTO note (id, user_name, directory, file_name, content, footer)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, user_name, directory, file_name, content, footer",
+            "INSERT INTO note (id, user_name, directory, file_name, content, footer, public)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, user_name, directory, file_name, content, public",
         )
         .bind(note.id)
         .bind(note.user_name)
@@ -460,6 +488,7 @@ impl Store {
         .bind(note.file_name)
         .bind(note.content)
         .bind(note.footer)
+            .bind(note.public)
         .map(|row: PgRow| Note {
             id: row.get("id"),
             user_name: row.get("user_name"),
@@ -467,6 +496,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
+            public: row.get("public")
         })
         .fetch_one(&self.connection)
         .await
@@ -728,11 +758,16 @@ impl Store {
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
         match sqlx::query("SELECT id, name FROM newinters")
             .map(|row: PgRow| {
+                let year: String = row.get("year");
+                let number: String = row.get("number");
+                let name =  format!("{}憲判{}", year, number);
                 otherlawresource::OtherSourceList{
                 id: row.get("id"),
-                name: row.get("name"),
-                sourcetype: "newinterpretation".to_string()
-            }})
+                name,
+                sourcetype: "newinterpretation".to_string(),
+
+            }
+                })
             .fetch_all(&self.connection)
             .await
         {
@@ -868,7 +903,7 @@ impl Store {
         match sqlx::query("SELECT id FROM oldinters")
             .map(|row: PgRow| {
                 let id: String = row.get("id");
-                let name = format!("大法官解釋{}", id.clone());
+                let name = format!("釋字{}", id.clone());
                 otherlawresource::OtherSourceList{
                     id: id.clone(),
                     name: name,

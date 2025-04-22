@@ -66,7 +66,7 @@ pub async fn get_lawList_by_chapter(
             .partial_cmp(&to_f32(b.num.clone()))
             .unwrap()
     });
-    laws.lines.retain(|law| law.chapter.join("/").contains(&chapter.chapter2));
+    laws.lines.retain(|law| law.chapter.join("/").replace(" ", "").contains(&chapter.chapter2));
     Ok(warp::reply::json(&laws.lines))
 }
 

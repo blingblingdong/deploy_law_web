@@ -16,9 +16,11 @@ pub async fn get_newinter(store: Store) -> Result<impl warp::Reply, warp::Reject
 
 pub async fn get_newinter_list(vec: Arc<Vec<otherlawresource::NewInter>>) -> Result<impl warp::Reply, warp::Rejection> {
     let list: Vec<_> = vec.iter()
-        .map(|item| {otherlawresource::OtherSourceList{
+        .map(|item| {
+            let name =  format!("{}憲判{}", item.year, item.number);
+            otherlawresource::OtherSourceList{
             id: item.id.clone(),
-            name: item.name.clone(),
+            name,
             sourcetype: "newinterpretation".to_string()
         }}).collect();
 
@@ -49,7 +51,7 @@ pub async fn get_oldinter_list(vec: Arc<Vec<OldInterpretation>>) -> Result<impl 
     let list: Vec<_> = vec.iter()
         .map(|item| {OtherSourceList{
             id: item.id.clone(),
-            name: format!("大法官解釋{}", item.id.clone()),
+            name: format!("釋字{}", item.id.clone()),
             sourcetype: "oldinterpretation".to_string()
         }}).collect();
 
@@ -138,4 +140,16 @@ pub async fn get_all_lawname_list(
     }
     Ok(warp::reply::json(&buffer))
 }
+
+pub async fn get_note_list_user(username: String, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let username = percent_decode_str(&username).decode_utf8_lossy();
+    match store.get_notelist_user(&username.to_string()).await {
+        Ok(list) => {
+            Ok(warp::reply::json(&list))
+        },
+        Err(_) => Err(warp::reject::custom(handle_errors::Error::QuestionNotFound)),
+    }
+}
+
+
 

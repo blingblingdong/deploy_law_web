@@ -172,6 +172,8 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::note::get_note_list);
 
+
+
     let update_note = warp::put()
         .and(warp::path("note"))
         .and(warp::path::param::<String>())
@@ -545,6 +547,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(resolution_filter.clone())
         .and_then(routes::otherlawresource::get_resolution_list);
 
+    let get_note_list_user = warp::get()
+        .and(warp::path("notelist"))
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_note_list_user);
+
 
 
 
@@ -571,6 +579,7 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(get_note_list_user)
         .or(get_lawname_list)
         .or(get_precedent_by_id)
         .or(get_newinter_by_id)
