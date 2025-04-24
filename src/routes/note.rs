@@ -111,10 +111,10 @@ pub async fn get_content(
             return Ok(warp::reply::json(&note));
         }
         Err(_) => {
-            info!("not in redis");
+            println!("not in redis");
             match store.get_note(id.to_string()).await {
                 Ok(note) => {
-                    info!("成功獲取：{}", note.id);
+                    println!("成功獲取：{}", note.id);
                     Ok(warp::reply::json(&note))
                 }
                 Err(e) => Err(warp::reject::custom(e)),
@@ -134,67 +134,137 @@ fn gzip_string(data: &str) -> Vec<u8> {
     encoder.finish().unwrap()
 }
 
+
+
+
+
 use redis::pipe;
+use tracing_subscriber::fmt::format;
+
 pub async fn update_content(
     id: String,
     mut redis: ConnectionManager,
     content: UpdateContent,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    let start = Instant::now();
+
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let content = update_nav(content.content);
-    let jsonContent = note::parse_note(&content);
-    let now = Instant::now();
+    let blocks = note::parse_note(&content);
+    let json = serde_json::to_string(&blocks).unwrap();
 
-    let json = serde_json::to_string(&jsonContent).unwrap();
+    let _ = redis.sadd("noteIdSet", &id).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
     let compressed = gzip_string(&json);
-    let mut pipeline = pipe();
-    pipeline
-        .cmd("SADD")
-        .arg("noteIdSet")
-        .arg(&id)
-        .cmd("SET")
-        .arg(&id)
-        .arg(compressed);
-
-    let redis_start = Instant::now();
-    let _: () = pipeline
-        .query_async(&mut redis)
-        .await
-        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
-    println!(
-        "✅ Redis pipeline (SADD+SET) 耗時：{:?}",
-        redis_start.elapsed()
-    );
-
-    /*
-    let _: () = redis
-        .sadd("noteIdSet", &id)
-        .await
-        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
-
-
-    let _: () = set_gzip_json(&mut redis, &id, &jsonContent)
-        .await
-        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
-    */
+    let _ = redis.set(&id, &compressed).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
 
     let parts: Vec<&str> = id.split("-").collect();
     let writerName = parts[0];
     let dirNmae = parts[1];
     let noteName = parts[2];
+
     let note = Note {
         id: id.to_string(),
         directory: dirNmae.to_string(),
         user_name: writerName.to_string(),
         footer: None,
-        content: Some(serde_json::to_value(jsonContent).unwrap()),
+        content: Some(serde_json::to_value(blocks).unwrap()),
         file_name: noteName.to_string(),
         public: true
     };
-    println!("🚀 update_content 總耗時：{:?}", start.elapsed());
+
     Ok(warp::reply::json(&note))
 }
+
+pub async fn update_name(
+    id: String,
+    newname: String,
+    store: Store,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
+
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    let newname = percent_decode_str(&newname).decode_utf8_lossy();
+
+    let parts: Vec<&str> = id.split("-").collect();
+    let writerName = parts.get(0).unwrap_or(&"no");
+    let dirName = parts.get(1).unwrap_or(&"no");
+
+    match store.get_note_name_by_dir(writerName, dirName).await {
+        Ok(names) => {
+            if names.contains(&newname.to_string()) {
+                // 先暫時忽略錯誤類型，反正如果有重名，則回傳拒絕
+                return Err(warp::reject::custom(handle_errors::Error::CannotDecryptToken))
+            }
+        },
+        Err(e) => {
+            // 如果根本不到資料夾或用戶，都會在這步被退回
+            // e是handle_errors::Error::DatabaseQueryError(e)
+            return Err(warp::reject::custom(e))
+        }
+    }
+
+
+    // 1.先查看有沒有在redis裡
+    // 2.如果有：
+    // 2.1先獲取block，並將該銷毀
+    // 2.2將block與新名字、id包裹成Note{}，傳進資料庫
+    // 2.3將資料回傳前端
+    // 3.如果沒有
+    // 3.1直接往資料夾更新
+    // 3.2將資料回傳
+    let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut redis, &id).await;
+    match redisResult {
+        Ok(block) => {
+            // 2.1銷毀
+            redis.del(id.clone()).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+
+            // 2.2.1更新block
+            let oldnote = store.update_the_note(serde_json::to_value(&block).unwrap(), id.to_string()).await?;
+            let newid = format!("{}-{}-{newname}", oldnote.user_name, oldnote.directory);
+            //2.2.2更新筆記名
+            let note = store.update_note_name(id.to_string(), newname.to_string(), newid).await?;
+
+            Ok(warp::reply::json(&note))
+        }
+        Err(_) => {
+            info!("not in redis");
+            //3.1更新筆記名
+            let newid = format!("{writerName}-{dirName}-{newname}");
+            let note = store.update_note_name(id.to_string(), newname.to_string(), newid).await?;
+            Ok(warp::reply::json(&note))
+        }
+    }
+
+}
+
+pub async fn update_state(
+    id: String,
+    state: String,
+    store: Store,
+) -> Result<impl warp::Reply, warp::Rejection> {
+
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    let state = percent_decode_str(&state).decode_utf8_lossy().to_string();
+    let public: bool;
+
+    if(&state == "true") {
+        public = true;
+    } else if (&state == "false") {
+        public = false;
+    } else {
+        return Err(warp::reject::custom(handle_errors::Error::CannotDecryptToken))
+    }
+
+    match store.update_note_state(id.to_string(), public).await {
+        Ok(id) => {
+            Ok(warp::reply::Response::new(id.into()))
+        },
+        Err(e) => {
+            Err(warp::reject::custom(e))
+        },
+    }
+
+}
+
 
 pub async fn get_every_note(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let notes = store.get_every_note().await?;

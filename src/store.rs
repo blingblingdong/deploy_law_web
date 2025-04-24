@@ -348,6 +348,63 @@ impl Store {
         }
     }
 
+    pub async fn update_note_name(
+        &self,
+        id: String,
+        file_name: String,
+        new_id: String,
+    ) -> Result<Note, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE note
+            SET id = $1, file_name = $2
+            WHERE id = $3
+             RETURNING id, user_name, directory, file_name, content, footer, public",
+        )
+            .bind(new_id)
+            .bind(file_name)
+            .bind(id)
+            .map(|row: PgRow| Note {
+                id: row.get("id"),
+                user_name: row.get("user_name"),
+                directory: row.get("directory"),
+                file_name: row.get("file_name"),
+                footer: row.get("footer"),
+                content: row.get("content"),
+                public: row.get("public")
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_note_state(
+        &self,
+        id: String,
+        public: bool,
+    ) -> Result<String, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE note
+            SET public = $1
+            WHERE id = $2
+            RETURNING id",
+        )
+            .bind(public)
+            .bind(id)
+            .map(|row: PgRow| {
+                let id: String = row.get("id");
+                id
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(id) => Ok(id),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn get_note_user(
         &self,
         user_name: &str,
@@ -372,6 +429,29 @@ impl Store {
         .await
         {
             Ok(note) => Ok(note),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_note_name_by_dir(
+        &self,
+        user_name: &str,
+        directory: &str,
+    ) -> Result<Vec<String>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT file_name from note
+        WHERE user_name = $1 AND directory = $2",
+        )
+            .bind(user_name)
+            .bind(directory)
+            .map(|row: PgRow| {
+                let name: String = row.get("file_name");
+                name
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(names) => Ok(names),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }

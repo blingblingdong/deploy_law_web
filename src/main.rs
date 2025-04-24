@@ -2,7 +2,7 @@
 pub mod routes;
 mod store;
 use redis::aio::ConnectionManager;
-use redis::{AsyncCommands, Client};
+use redis::{AsyncCommands, Client, RedisError};
 pub mod types;
 use config::Config;
 #[allow(unused_imports)]
@@ -10,9 +10,11 @@ use handle_errors::return_error;
 use law_rs::Laws;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use note::Block;
 use tokio::time::{interval, Duration};
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Method, Filter};
+use crate::routes::note::get_gzip_json;
 
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub struct Args {
@@ -28,22 +30,46 @@ macro_rules! trace_async {
 }
 
 /*
-
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
     let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
-    let files = store
-        .get_every_file()
-        .await?;
-    for file in files.vec_files {
-        let content = note::parse_note(&file.content);
-        let x = store.update_the_note(serde_json::json!(content), file.id).await.unwrap();
-        println!("{}", x.id);
+
+
+    let client = Client::open("redis://default:YezaUpCuecITVAKhENlObxOddVrcGRHH@autorack.proxy.rlwy.net:33895").unwrap();
+    let mut manager = ConnectionManager::new(client).await.unwrap();
+
+    let idset: Vec<String> = manager.del("noteIdSet").await.unwrap();
+
+    /*
+    let idset: Vec<String>= manager.smembers("noteIdSet").await.unwrap();
+    for id in idset {
+        let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut manager, &id).await;
+        match redisResult {
+            Ok(blocks) => {
+                let note = store.update_the_note(serde_json::to_value(blocks).unwrap(), id.clone()).await.unwrap();
+                println!("{}", note.id);
+                let x: Result<String, redis::RedisError> = manager.clone().del(id.clone()).await;
+                match x {
+                    Ok(_) => {
+                        println!("{id} been del");
+                        let _:() = manager.clone().srem("noteIdSet", id.clone()).await.unwrap();
+                    }
+                    _ => {}
+                }
+            },
+            Err(_) => {}
+        }
     }
+     */
+
+
+
     Ok(())
 }
 
  */
+
+
 
 
 #[tokio::main]
@@ -85,6 +111,43 @@ async fn main() -> Result<(), handle_errors::Error> {
     let db_url = std::env::var("DATABASE_PUBLIC_URL").unwrap();
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
+
+    /*
+    tokio::spawn(async {
+        let mut interval = interval(Duration::from_secs(300));
+
+        loop {
+            interval.tick().await;
+            let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
+            let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
+            let client = Client::open(redis_url).unwrap();
+            let mut manager = ConnectionManager::new(client).await.unwrap();
+            let idset: Vec<String>= manager.smembers("noteIdSet").await.unwrap();
+            for id in idset {
+                let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut manager, &id).await;
+                match redisResult {
+                    Ok(blocks) => {
+                        let note = store.update_the_note(serde_json::to_value(blocks).unwrap(), id.clone()).await.unwrap();
+                        println!("{}", note.id);
+                        let x: Result<String, redis::RedisError> = manager.clone().del(id.clone()).await;
+                        match x {
+                            Ok(_) => {
+                                println!("{id} been del");
+                                let _:() = manager.clone().srem("noteIdSet", id.clone()).await.unwrap();
+                            }
+                            _ => {}
+                        }
+                    },
+                    Err(_) => {}
+                }
+            }
+
+
+        }
+    });
+     */
+
+
 
 
     let mut new_inters = store.clone().get_newinterpretations().await?;
@@ -181,6 +244,22 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(redis_filter.clone())
         .and(warp::body::json())
         .and_then(routes::note::update_content);
+
+    let update_note_state = warp::get()
+        .and(warp::path("note_state"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::note::update_state);
+
+    let update_note_name = warp::get()
+        .and(warp::path("note_name"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(store_filter.clone())
+        .and(redis_filter.clone())
+        .and_then(routes::note::update_name);
 
     let get_note = warp::get()
         .and(warp::path("note"))
@@ -579,6 +658,8 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = get_all_lines
+        .or(update_note_state)
+        .or(update_note_name)
         .or(get_note_list_user)
         .or(get_lawname_list)
         .or(get_precedent_by_id)
@@ -643,22 +724,9 @@ async fn main() -> Result<(), handle_errors::Error> {
         .recover(return_error);
     warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
-    /*
-    tokio::spawn(async {
-        let mut interval = interval(Duration::from_secs(250));
-
-        loop {
-            interval.tick().await;
-            let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
-            let mut redis_database = Redis_Database::new(&redis_url).await
-                .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
-            let exists_or_not: Result<Option<String>, redis::RedisError> = redis_database.connection.get(&).await;
-            let x =
 
 
-        }
-    });
-    */
+
 
     Ok(())
 }
@@ -688,5 +756,7 @@ async fn handle_set(
     let _: redis::RedisResult<()> = redis.set(&key, &value).await;
     Ok(format!("Saved key={} value={}", key, value))
 }
+
+
 
 
