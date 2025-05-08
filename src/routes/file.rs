@@ -1,7 +1,5 @@
-use crate::routes::record::NoteUpdate;
 use crate::store::Store;
 use crate::types::file::File;
-use crate::types::record;
 use bytes::BufMut;
 use futures::{StreamExt, TryStreamExt};
 use lol_html::element;
@@ -35,15 +33,20 @@ pub async fn add_file(store: Store, file: File) -> Result<impl warp::Reply, warp
     }
 }
 
+
 #[derive(Deserialize, Serialize)]
+#[allow(non_snake_case)]
 pub struct Image {
     name: String,
     bucket: String,
     generation: String,
     metageneration: String,
+    #[allow(non_snake_case)]
     contentType: String,
+    #[allow(non_snake_case)]
     timeCreated: String,
     updated: String,
+    #[allow(non_snake_case)]
     storageClass: String,
     size: String,
     md5Hash: String,
@@ -387,6 +390,7 @@ pub async fn insert_content(law_block: LawBlock) -> Result<impl warp::Reply, war
     Ok(warp::reply::html(new_content))
 }
 
+#[allow(non_snake_case)]
 pub fn update_nav(file_content: String) -> Vec<String> {
     let mut output = Vec::new();
     let mut rewriter = HtmlRewriter::new(
@@ -426,6 +430,7 @@ pub fn update_nav(file_content: String) -> Vec<String> {
     vec![contents, heading_vec.join(""), useLaw]
 }
 
+#[allow(non_snake_case)]
 fn findUseLaw(file_content: &str) -> String {
     let document = Document::from(file_content);
     let mut lawhash = LawHash {
@@ -455,6 +460,8 @@ fn findUseLaw(file_content: &str) -> String {
     }
 }
 
+
+#[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 struct usinglaw {
     chapter: String,

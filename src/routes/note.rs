@@ -1,9 +1,8 @@
-use crate::routes::record::NoteUpdate;
+
 use crate::store::Store;
 use crate::types::account::Redis_Database;
 use crate::types::file::File;
 use crate::types::note::Note;
-use crate::types::record;
 use bytes::BufMut;
 use futures::{StreamExt, TryStreamExt};
 use handle_errors::Error;
@@ -37,10 +36,64 @@ pub async fn add_note(
     store: Store,
     note: crate::types::note::Note,
 ) -> Result<impl warp::Reply, warp::Rejection> {
+
     match store.add_note(note).await {
         Ok(note) => {
             info!("成功新增：{}", note.id);
             Ok(warp::reply::json(&note))
+        }
+        Err(e) => Err(warp::reject::custom(e)),
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Note_Date {
+    date: String
+}
+
+pub async fn update_note_date(
+    id: String,
+    store: Store,
+    note_date: Note_Date
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy().to_string();
+
+    println!("{}", note_date.date);
+
+    let real_date = chrono::DateTime::parse_from_rfc3339(&note_date.date)
+        .map_err(|e| {
+            println!("{e}{}", note_date.date);
+            warp::reject::custom(handle_errors::Error::TokenNotFound)
+        })?
+        .with_timezone(&chrono::Utc);
+
+    match store.update_note_date(id, real_date).await {
+        Ok(id) => {
+            info!("成功新增：{}", id);
+            Ok(warp::reply::with_status(id, StatusCode::OK))
+        }
+        Err(e) => Err(warp::reject::custom(e)),
+    }
+}
+
+pub async fn get_note_date(
+    id: String,
+    store: Store,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy().to_string();
+    let date = store.get_note_date(id).await?;
+    Ok(warp::reply::json(&date.to_rfc3339()))
+}
+
+pub async fn delete_note(
+    id: String,
+    store: Store,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    match store.delete_note(&id).await {
+        Ok(note) => {
+            let message = format!("成功刪除：{}", note.id);
+            Ok(warp::reply::with_status(message, StatusCode::OK))
         }
         Err(e) => Err(warp::reject::custom(e)),
     }
@@ -135,7 +188,24 @@ fn gzip_string(data: &str) -> Vec<u8> {
 }
 
 
+pub async fn clean_redis(
+    store: Store,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
 
+    let idset: Vec<String> = redis.smembers("noteIdSet").await.map_err(|e| handle_errors::Error::CacheError(e))?;
+    for id in idset {
+        let blocks: Vec<Block> = get_gzip_json(&mut redis, &id).await.map_err(|e| handle_errors::Error::CacheError(e))?;
+        let json = serde_json::to_value(blocks).map_err(|_| handle_errors::Error::TokenNotFound)?;
+        let note = store
+            .update_the_note(json, id.clone())
+            .await?;
+        let x: String = redis.del(note.id.clone()).await.map_err(|e| handle_errors::Error::CacheError(e))?;
+        info!("{id}");
+        let _: () = redis.srem("noteIdSet", note.id.clone()).await.unwrap_or(());
+    }
+    Ok(warp::reply::with_status("Redis Clean", StatusCode::OK))
+}
 
 
 use redis::pipe;

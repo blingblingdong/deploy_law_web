@@ -2,12 +2,11 @@
 pub mod routes;
 mod store;
 use redis::aio::ConnectionManager;
-use redis::{AsyncCommands, Client, RedisError};
+use redis::{AsyncCommands, Client, RedisError, RedisResult};
 pub mod types;
 use config::Config;
 #[allow(unused_imports)]
 use handle_errors::return_error;
-use law_rs::Laws;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use note::Block;
@@ -112,43 +111,12 @@ async fn main() -> Result<(), handle_errors::Error> {
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
 
-    /*
-    tokio::spawn(async {
-        let mut interval = interval(Duration::from_secs(300));
 
-        loop {
-            interval.tick().await;
-            let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
-            let redis_url= std::env::var("REDIS_PUBLIC_URL").unwrap();
-            let client = Client::open(redis_url).unwrap();
-            let mut manager = ConnectionManager::new(client).await.unwrap();
-            let idset: Vec<String>= manager.smembers("noteIdSet").await.unwrap();
-            for id in idset {
-                let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut manager, &id).await;
-                match redisResult {
-                    Ok(blocks) => {
-                        let note = store.update_the_note(serde_json::to_value(blocks).unwrap(), id.clone()).await.unwrap();
-                        println!("{}", note.id);
-                        let x: Result<String, redis::RedisError> = manager.clone().del(id.clone()).await;
-                        match x {
-                            Ok(_) => {
-                                println!("{id} been del");
-                                let _:() = manager.clone().srem("noteIdSet", id.clone()).await.unwrap();
-                            }
-                            _ => {}
-                        }
-                    },
-                    Err(_) => {}
-                }
-            }
-
-
-        }
-    });
-     */
-
-
-
+    // 建立redis資料庫聯繫
+    let redis_url = std::env::var("REDIS_PUBLIC_URL").unwrap_or("redis://127.0.0.1/".to_string());
+    println!("{}", redis_url);
+    let client = Client::open(redis_url).unwrap();
+    let manager = ConnectionManager::new(client).await.unwrap();
 
     let mut new_inters = store.clone().get_newinterpretations().await?;
     new_inters.sort_by(|a, b|{
@@ -182,26 +150,15 @@ async fn main() -> Result<(), handle_errors::Error> {
     let precedents_shared = Arc::new(precedents);
     let pecedent_filter = warp::any().map(move || precedents_shared.clone());
 
-
-    let store_filter = warp::any().map(move || store.clone());
-    let law = Laws::from_pool(&db_url)
-        .await
-        .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
-    let laws_shared = Arc::new(law);
-    let law_filter = warp::any().map(move || laws_shared.clone());
-
-    let new_law = crate::types::new_law::NewLaws::from_pool(&db_url)
+    let new_law = new_law::NewLaws::from_pool(&db_url)
         .await
         .map_err(|e| handle_errors::Error::DatabaseQueryError(e))?;
     let new_laws_shared = Arc::new(new_law.categories(0));
     let new_law_filter = warp::any().map(move || new_laws_shared.clone());
 
-    // 建立redis資料庫聯繫
-    let redis_url = std::env::var("REDIS_PUBLIC_URL").unwrap_or("redis://127.0.0.1/".to_string());
-    println!("{}", redis_url);
-    let client = Client::open(redis_url).unwrap();
-    let manager = ConnectionManager::new(client).await.unwrap();
+    let store_filter = warp::any().map(move || store.clone());
     let redis_filter = warp::any().map(move || manager.clone());
+
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -257,9 +214,17 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path("note_name"))
         .and(warp::path::param::<String>())
         .and(warp::path::param::<String>())
+        .and(warp::path::end())
         .and(store_filter.clone())
         .and(redis_filter.clone())
         .and_then(routes::note::update_name);
+
+    let clean_redis = warp::get()
+        .and(warp::path("redis_clean"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(redis_filter.clone())
+        .and_then(routes::note::clean_redis);
 
     let get_note = warp::get()
         .and(warp::path("note"))
@@ -275,6 +240,13 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::note::add_note);
 
+    let delete_note = warp::delete()
+        .and(warp::path("note"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::note::delete_note);
+
     let get_note_nav = warp::get()
         .and(warp::path("note_nav"))
         .and(warp::path::param::<String>())
@@ -282,6 +254,45 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and(redis_filter.clone())
         .and_then(routes::note::get_note_nav);
+
+    let get_library = warp::get()
+        .and(warp::path("library"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::Library::get_library_by_user);
+
+    let get_library_item = warp::get()
+        .and(warp::path("library_item"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::Library::get_library_item);
+
+    let add_library_item = warp::post()
+        .and(warp::path("library_item"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::Library::add_library_item);
+
+    let add_library = warp::post()
+        .and(warp::path("library"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::Library::add_library);
+
+    let get_history_law = warp::get()
+        .and(warp::path("historylaw"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::new_law::get_history_law);
 
     let get_every_files = warp::get()
         .and(warp::path("every_file"))
@@ -300,12 +311,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::get_file_list2);
 
-    let delete_dir_by_name = warp::delete()
-        .and(warp::path("delete_dir_by_name"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(store_filter.clone())
-        .and_then(routes::record::delete_dir_by_name);
+
 
     let get_dir_for_pop = warp::get()
         .and(warp::path("dir_for_pop"))
@@ -326,29 +332,21 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::directory::get_gallery_dir);
 
-    let get_table = warp::get()
-        .and(warp::path("questions"))
-        .and(warp::path::param::<String>())
+    let get_note_date = warp::get()
+        .and(warp::path("date"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_table)
-        .with(warp::trace(|info| {
-            tracing::info_span!(
-                "get_questions request",
-                method = %info.method(),
-                path = %info.path(),
-                id = %uuid::Uuid::new_v4(),
-            )
-        }));
+        .and(store_filter.clone())
+        .and_then(routes::note::get_note_date);
 
-    let get_all_lines = warp::get()
-        .and(warp::path("questions"))
-        .and(warp::path("all_lines"))
+    let update_note_date = warp::post()
+        .and(warp::path("date"))
         .and(warp::path::param::<String>())
         .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_all_lines);
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::note::update_note_date);
+
 
     let get_all_chapter = warp::get()
         .and(warp::path("allChapter"))
@@ -364,20 +362,9 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_all_lawList);
 
-    let get_laws_by_text = warp::get()
-        .and(warp::path("laws_by_text"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_laws_by_text);
 
-    let get_search_chapters = warp::get()
-        .and(warp::path("search"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_search_chapters);
+
+
 
     let get_all_chapters = warp::get()
         .and(warp::path("all_chapters"))
@@ -385,28 +372,9 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_all_chapters);
 
-    let add_record = warp::post()
-        .and(warp::path("questions"))
-        .and(warp::path::end())
-        .and(store_filter.clone())
-        .and(warp::body::json())
-        .and_then(routes::record::add_record);
 
-    let get_records_to_laws = warp::get()
-        .and(warp::path("records_to_laws"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(store_filter.clone())
-        .and(law_filter.clone())
-        .and_then(routes::record::get_records_to_laws);
 
-    let get_lines_by_chapter = warp::post()
-        .and(warp::path("lines_by_chapter"))
-        .and(warp::path::end())
-        .and(law_filter.clone())
-        .and(warp::body::json())
-        .and_then(routes::law::get_lines_by_chapter);
+
 
     let get_lawList_by_chapter = warp::post()
         .and(warp::path("lawList_by_chapter"))
@@ -415,12 +383,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::new_law::get_lawList_by_chapter);
 
-    let get_input_chapter = warp::get()
-        .and(warp::path("input_chapter"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_input_chapter);
+
 
     let add_file = warp::post()
         .and(warp::path("file"))
@@ -488,13 +451,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_one_law);
 
-    let get_law_lines = warp::get()
-        .and(warp::path("law_lines"))
-        .and(warp::path::param::<String>())
-        .and(warp::path::param::<String>())
-        .and(warp::path::end())
-        .and(law_filter.clone())
-        .and_then(routes::law::get_format_lines);
+
 
     let delete_file = warp::delete()
         .and(warp::path("file"))
@@ -633,8 +590,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and_then(routes::otherlawresource::get_note_list_user);
 
 
-
-
     let are_you_in_redis = warp::post()
         .and(warp::path("find_token_in_redis"))
         .and(warp::path::param::<String>())
@@ -657,7 +612,15 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     // 新增靜態文件路由
 
-    let routes = get_all_lines
+    let routes = clean_redis
+        .or(get_library_item)
+        .or(get_library)
+        .or(add_library)
+        .or(add_library_item)
+        .or(get_history_law)
+        .or(update_note_date)
+        .or(get_note_date)
+        .or(delete_note)
         .or(update_note_state)
         .or(update_note_name)
         .or(get_note_list_user)
@@ -682,7 +645,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(add_note)
         .or(get_note)
         .or(update_note)
-        .or(get_input_chapter)
         .or(update_file_name)
         .or(image)
         .or(get_all_lawList)
@@ -691,30 +653,22 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(upload_image)
         .or(login)
         .or(add_dir)
-        .or(get_law_lines)
         .or(get_dir_pub)
         .or(get_pdf)
         .or(are_you_in_redis)
         .or(get_file_list)
         .or(insert_content)
-        .or(add_record)
-        .or(get_table)
         .or(registration)
         .or(get_dir)
         .or(get_one_law)
         .or(get_content_markdown)
-        .or(get_search_chapters)
         .or(get_all_chapters)
-        .or(get_records_to_laws)
-        .or(get_lines_by_chapter)
         .or(get_dir_for_pop)
         .or(get_lawList_by_chapter)
-        .or(delete_dir_by_name)
         .or(get_content_html)
         .or(add_file)
         .or(update_content)
         .or(delete_file)
-        .or(get_laws_by_text)
         .or(get_file_list2)
         .or(get_every_files)
         .or(get_all_chapter)

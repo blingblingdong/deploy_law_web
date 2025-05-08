@@ -1,11 +1,10 @@
-use std::collections::HashMap;
+
 use std::sync::Arc;
-use std::vec;
 use indexmap::IndexMap;
 use percent_encoding::percent_decode_str;
 use otherlawresource::{OldInterpretation, OtherSourceList, Precedent, Resolution};
 use crate::store::Store;
-use crate::types::new_law::NewLaws;
+
 
 pub async fn get_newinter(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     match store.get_newinterpretations().await {
@@ -127,7 +126,7 @@ pub async fn get_resolution_by_id(id: String, store: Store) -> Result<impl warp:
 }
 
 pub async fn get_all_lawname_list(
-    map: Arc<IndexMap<String, NewLaws>>,
+    map: Arc<IndexMap<String, new_law::NewLaws>>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut buffer = Vec::new();
     for name in map.keys() {

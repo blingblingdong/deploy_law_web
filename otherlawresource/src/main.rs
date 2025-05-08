@@ -31,6 +31,112 @@ async fn get_one_inter() -> Result<(), Box<dyn Error>> {
 }
 
 #[tokio::test]
+async fn tryscrapehistory() -> Result<(), Box<dyn Error>> {
+    let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
+    let new_law = new_law::NewLaws::from_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway")
+        .await?;
+
+    let semaphore = Arc::new(Semaphore::new(10));
+    let pool = Arc::new(pool);
+    let mut handles = Vec::new();
+
+    let map = new_law.categories(0);
+    let laws = map.get("民法").unwrap();
+
+    let mut set = std::collections::HashSet::new();
+    let history_laws = otherlawresource::get_all_historylaw(&pool).await;
+    history_laws.iter().for_each(|x| {
+        set.insert(x.lawid.clone());
+    });
+    let the_laws: Vec<String> = laws
+        .lines
+        .iter()
+        .filter(|law| !set.contains(&law.id))
+        .map(|law| law.num.clone())
+        .collect();
+
+    for id in the_laws {
+        let chapter = "民法".to_string();
+        let href = format!("{chapter}{id}.html");
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let pool = pool.clone();
+        let historyvec = otherlawresource::scrape_historylaw(href, chapter, id).await?;
+
+        let handle = tokio::spawn(async move {
+            for history in historyvec {
+                history.add_to_pool(&pool).await;
+            }
+            sleep(Duration::from_secs(10)).await;
+            drop(permit);
+        });
+
+        handles.push(handle);
+    }
+    join_all(handles).await;
+    Ok(())
+}
+
+#[tokio::test]
+async fn tryscrapehistory2() -> Result<(), Box<dyn Error>> {
+    let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
+    /*
+    let new_law = new_law::NewLaws::from_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway")
+        .await?;
+
+    let semaphore = Arc::new(Semaphore::new(10));
+    let pool = Arc::new(pool);
+    let mut handles = Vec::new();
+
+    let map = new_law.categories(0);
+    let laws = map.get("民法").unwrap();
+
+    let mut set = std::collections::HashSet::new();
+    let history_laws = otherlawresource::get_all_historylaw(&pool).await;
+    history_laws.iter().for_each(|x| {
+        set.insert(x.lawid.clone());
+    });
+    let the_laws: Vec<String> = laws
+        .lines
+        .iter()
+        .filter(|law| !set.contains(&law.id))
+        .map(|law| law.num.clone())
+        .collect();
+
+    for id in the_laws {
+        let chapter = "民法".to_string();
+        let href = format!("{chapter}{id}.html");
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let pool = pool.clone();
+        let historyvec = otherlawresource::scrape_historylaw(href, chapter, id).await?;
+
+        let handle = tokio::spawn(async move {
+            for history in historyvec {
+                history.add_to_pool(&pool).await;
+            }
+            sleep(Duration::from_secs(10)).await;
+            drop(permit);
+        });
+
+        handles.push(handle);
+    }
+    join_all(handles).await;
+    */
+
+    for num in 1..5 {
+        let chapter = "家事事件法".to_string();
+        let href = format!("{chapter}/{chapter}{num}.html");
+        let vec = otherlawresource::scrape_historylaw2(href, chapter)
+            .await
+            .unwrap();
+        for h in vec {
+            h.add_to_pool(&pool).await;
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn get_one_law() -> Result<(), Box<dyn Error>> {
     let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
     let href = "https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=D0070119".to_string();
@@ -454,6 +560,53 @@ fn replace_the_text(text: &str) -> String {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
+    let new_law = new_law::NewLaws::from_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway")
+        .await?;
+
+    let semaphore = Arc::new(Semaphore::new(10));
+    let pool = Arc::new(pool);
+    let mut handles = Vec::new();
+
+    let map = new_law.categories(0);
+    let laws = map.get("民法").unwrap();
+
+    let mut set = std::collections::HashSet::new();
+    let history_laws = otherlawresource::get_all_historylaw(&pool).await;
+    history_laws.iter().for_each(|x| {
+        set.insert(x.lawid.clone());
+    });
+    let the_laws: Vec<String> = laws
+        .lines
+        .iter()
+        .filter(|law| !set.contains(&law.id))
+        .map(|law| law.num.clone())
+        .collect();
+
+    for id in the_laws {
+        let chapter = "民法".to_string();
+        let href = format!("{chapter}{id}.html");
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let pool = pool.clone();
+        let historyvec = otherlawresource::scrape_historylaw(href, chapter, id).await?;
+
+        let handle = tokio::spawn(async move {
+            for history in historyvec {
+                history.add_to_pool(&pool).await;
+            }
+            sleep(Duration::from_secs(10)).await;
+            drop(permit);
+        });
+
+        handles.push(handle);
+    }
+    join_all(handles).await;
+    Ok(())
+}
+
+/*
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
     let semaphore = Arc::new(Semaphore::new(50));
     let pool = Arc::new(pool);
     let mut handles = Vec::new();
@@ -680,6 +833,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+*/
 
 async fn get_law_href(href: String) -> Vec<String> {
     let mut buffer = Vec::new();

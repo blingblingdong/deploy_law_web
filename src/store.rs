@@ -2,12 +2,13 @@ use crate::types::account::Account;
 use crate::types::directory::Directory;
 use crate::types::file::{File, Files};
 use crate::types::note::Note;
-use crate::types::record::{LawRecord, LawRecords};
 use argon2::Config;
+use chrono::Utc;
 use log::error;
 use rand::Rng;
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::{PgPool, Row};
+use crate::types::Library::{Library, LibraryItem};
 
 #[derive(Clone)]
 pub struct Store {
@@ -269,54 +270,9 @@ impl Store {
         }
     }
 
-    pub async fn get_all_records(&self) -> Result<LawRecords, handle_errors::Error> {
-        match sqlx::query("SELECT * from records")
-            .map(|row: PgRow| LawRecord {
-                id: row.get("id"),
-                chapter: row.get("chapter"),
-                num: row.get("num"),
-                user_name: row.get("user_name"),
-                directory: row.get("directory"),
-                note: row.get("note"),
-            })
-            .fetch_all(&self.connection)
-            .await
-        {
-            Ok(records) => Ok(LawRecords {
-                vec_record: records,
-            }),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
 
-    pub async fn get_by_user(
-        &self,
-        user_name: &str,
-        directory: &str,
-    ) -> Result<LawRecords, handle_errors::Error> {
-        match sqlx::query(
-            "SELECT * from records
-        WHERE user_name = $1 AND directory = $2",
-        )
-        .bind(user_name)
-        .bind(directory)
-        .map(|row: PgRow| LawRecord {
-            id: row.get("id"),
-            chapter: row.get("chapter"),
-            num: row.get("num"),
-            user_name: row.get("user_name"),
-            directory: row.get("directory"),
-            note: row.get("note"),
-        })
-        .fetch_all(&self.connection)
-        .await
-        {
-            Ok(records) => Ok(LawRecords {
-                vec_record: records,
-            }),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
+
+
 
     pub async fn update_directory(
         &self,
@@ -533,10 +489,57 @@ impl Store {
         }
     }
 
+
+
+    pub async fn get_note_date(&self, id: String) -> Result<chrono::DateTime<Utc>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT date
+            FROM note
+            WHERE id = $1",
+        )
+            .bind(id)
+            .map(|row: PgRow| {
+                let date:chrono::DateTime<Utc> = row.get("date");
+                date
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(date) => Ok(date),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_note_date(
+        &self,
+        id: String,
+        date: chrono::DateTime<Utc>
+    ) -> Result<String, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE note
+            SET date = $1
+            WHERE id = $2
+            RETURNING id",
+        )
+            .bind(date)
+            .bind(id)
+            .map(|row: PgRow| {
+                let id: String = row.get("id");
+                id
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(id) => Ok(id),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn delete_note(&self, id: &str) -> Result<Note, handle_errors::Error> {
         match sqlx::query(
             "DELETE FROM note
-            Where id = $1",
+            Where id = $1
+            RETURNING id, user_name, directory, file_name, content, footer, public",
         )
         .bind(id)
         .map(|row: PgRow| Note {
@@ -560,7 +563,7 @@ impl Store {
         match sqlx::query(
             "INSERT INTO note (id, user_name, directory, file_name, content, footer, public)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, user_name, directory, file_name, content, public",
+            RETURNING id, user_name, directory, file_name, content, footer, public",
         )
         .bind(note.id)
         .bind(note.user_name)
@@ -676,87 +679,6 @@ impl Store {
         .await
         {
             Ok(directory) => Ok(directory),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
-
-    pub async fn add_records(&self, record: LawRecord) -> Result<LawRecord, handle_errors::Error> {
-        match sqlx::query(
-            "INSERT INTO records (id, chapter, num, user_name, directory, note)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, chapter, num, user_name, directory, note",
-        )
-        .bind(record.id)
-        .bind(record.chapter)
-        .bind(record.num)
-        .bind(record.user_name)
-        .bind(record.directory)
-        .bind(record.note)
-        .map(|row: PgRow| LawRecord {
-            id: row.get("id"),
-            chapter: row.get("chapter"),
-            num: row.get("num"),
-            user_name: row.get("user_name"),
-            directory: row.get("directory"),
-            note: row.get("note"),
-        })
-        .fetch_one(&self.connection)
-        .await
-        {
-            Ok(record) => Ok(record),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
-
-    pub async fn update_note(
-        &self,
-        id: String,
-        note: String,
-    ) -> Result<LawRecord, handle_errors::Error> {
-        match sqlx::query(
-            "UPDATE records
-            SET note = $1
-            WHERE id = $2
-            RETURNING id, chapter, num, user_name, directory, note;",
-        )
-        .bind(note)
-        .bind(id)
-        .map(|row: PgRow| LawRecord {
-            id: row.get("id"),
-            chapter: row.get("chapter"),
-            num: row.get("num"),
-            user_name: row.get("user_name"),
-            directory: row.get("directory"),
-            note: row.get("note"),
-        })
-        .fetch_one(&self.connection)
-        .await
-        {
-            Ok(record) => Ok(record),
-            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-        }
-    }
-
-    pub async fn delete_by_dir(&self, dir: &str) -> Result<LawRecords, handle_errors::Error> {
-        match sqlx::query(
-            "DELETE FROM records
-            Where directory = $1;",
-        )
-        .bind(dir)
-        .map(|row: PgRow| LawRecord {
-            id: row.get("id"),
-            chapter: row.get("chapter"),
-            num: row.get("num"),
-            user_name: row.get("user_name"),
-            directory: row.get("directory"),
-            note: row.get("note"),
-        })
-        .fetch_all(&self.connection)
-        .await
-        {
-            Ok(records) => Ok(LawRecords {
-                vec_record: records,
-            }),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
@@ -1086,5 +1008,128 @@ impl Store {
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
+
+    pub async fn get_historylaw(&self, lawid: String) -> Result<Vec<otherlawresource::HistoryLaw>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM history_law WHERE lawid  = $1")
+            .bind(lawid)
+            .map(|row: PgRow| otherlawresource::HistoryLaw {
+                id: row.get("id"),
+                lawid: row.get("lawid"),
+                date: row.get("date"),
+                content: row.get("content"),
+                no: row.get("no"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_library(&self, library: Library) -> Result<Library, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO library (id, library_name, user_name, public)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, library_name, user_name, public"
+        )
+            .bind(&library.id)
+            .bind(&library.library_name)
+            .bind(&library.user_name)
+            .bind(library.public)
+            .map(|row: PgRow| Library {
+                id: row.get("id"),
+                library_name: row.get("library_name"),
+                user_name: row.get("user_name"),
+                public: row.get("public"),
+            })
+            .fetch_one(&self.connection)
+            .await {
+            Ok(library) => Ok(library),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_library_item(&self, item: LibraryItem) -> Result<LibraryItem, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO library_item (id, item_library, item_type, item_name, item_id, ordering)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, item_library, item_type, item_name, item_id, ordering"
+        )
+            .bind(&item.id)
+            .bind(&item.item_library)
+            .bind(&item.item_type)
+            .bind(&item.item_name)
+            .bind(item.item_id)
+            .bind(item.order)
+            .map(|row: PgRow| LibraryItem {
+                id: row.get("id"),
+                item_id: row.get("item_id"),
+                item_library: row.get("item_library"),
+                item_type: row.get("item_type"),
+                item_name: row.get("item_name"),
+                order: row.get("ordering"),
+            })
+            .fetch_one(&self.connection)
+            .await {
+            Ok(item) => Ok(item),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+    pub async fn get_library_user(
+        self,
+        user_name: &str,
+    ) -> Result<Vec<Library>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * FROM library
+         WHERE user_name = $1",
+        )
+            .bind(user_name)
+            .map(|row: PgRow| Library {
+                id: row.get("id"),
+                library_name: row.get("library_name"),
+                user_name: row.get("user_name"),
+                public: row.get("public"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(libraries) => Ok(libraries),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_item_by_library(
+        self,
+        library_id: &str,
+    ) -> Result<Vec<LibraryItem>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * FROM library_item
+         WHERE item_library = $1
+         ORDER BY ordering DESC",
+        )
+            .bind(library_id)
+            .map(|row: PgRow| LibraryItem {
+                id: row.get("id"),
+                item_library: row.get("item_library"),
+                item_type: row.get("item_type"),
+                item_id: row.get("item_id"),
+                item_name: row.get("item_name"),
+                order: row.get("ordering"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+
+
+
+
 }
 

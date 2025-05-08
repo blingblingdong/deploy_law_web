@@ -1,13 +1,12 @@
-use indexmap::{IndexMap, IndexSet};
+#[allow(non_snake_case)]
+use indexmap::{IndexMap};
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::Row;
 use std::error::Error;
-use std::fmt::format;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
-use std::collections::HashMap;
+use std::io::{BufRead};
+
 
 #[derive(Debug)]
 pub enum LawError {
@@ -91,6 +90,7 @@ pub struct LawList {
 pub struct ChapterUl {
     pub chapter: String,
     pub level: usize,
+    #[allow(non_snake_case)]
     pub childChapters: Vec<ChapterUl>,
 }
 
@@ -108,8 +108,8 @@ impl NewLaws {
         *number.iter().max().unwrap()
     }
 
-    pub fn categories(&self, index: usize) -> HashMap<String, NewLaws> {
-        let mut map = HashMap::new();
+    pub fn categories(&self, index: usize) -> IndexMap<String, NewLaws> {
+        let mut map = IndexMap::new();
         for law in &self.lines {
             if law.chapter.len() > index {
                 let name = law.chapter.get(index).unwrap().to_string();
@@ -122,15 +122,13 @@ impl NewLaws {
         map
     }
 
-    pub fn get_chapterUlList(&self, chapter: String) -> Result<Vec<ChapterUl>, LawError> {
-        let binding = self.categories(0);
-        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
-        let chapter_num = self.count_chapter();
-        let x = l.chapter_ul_list_create(1, chapter_num);
+    #[allow(non_snake_case)]
+    pub fn get_chapterUlList(&self) -> Result<Vec<ChapterUl>, LawError> {
+        let x = self.chapter_ul_list_create(1);
         Ok(x)
     }
 
-    pub fn chapter_ul_list_create(&self, level: usize, max_level: usize) -> Vec<ChapterUl> {
+    pub fn chapter_ul_list_create(&self, level: usize) -> Vec<ChapterUl> {
         let mut list = Vec::new();
         let map = self.categories(level); // 假設這回傳一個 IndexMap
         for (chapter_name, laws) in &map {
@@ -143,13 +141,14 @@ impl NewLaws {
             println!("{max}");
             if level < max - 1 {
                 // 遞迴建立子章節列表
-                chapter_ul.childChapters = laws.chapter_ul_list_create(level + 1, max);
+                chapter_ul.childChapters = laws.chapter_ul_list_create(level + 1);
             }
             list.push(chapter_ul);
         }
         list
     }
 
+    #[allow(non_snake_case)]
     pub fn lawList_by_chapter(
         &self,
         chapter1: String,
@@ -169,15 +168,15 @@ impl NewLaws {
         }
     }
 
-    pub fn lawList_create(&self, chapter: String) -> Result<Vec<LawList>, LawError> {
-        let binding = self.categories(0);
-        let l = binding.get(&chapter).ok_or(LawError::NOThisChapter)?;
+    #[allow(non_snake_case)]
+    pub fn lawList_create(&self) -> Result<Vec<LawList>, LawError> {
         let mut list: Vec<LawList> = Vec::new();
         let mut buffer: Vec<String> = Vec::new();
-        l.lawList_push(0, &mut list, &mut buffer);
+        self.lawList_push(0, &mut list, &mut buffer);
         Ok(list)
     }
 
+    #[allow(non_snake_case)]
     pub fn lawList_push(&self, level: usize, list: &mut Vec<LawList>, buffer: &mut Vec<String>) {
         let map1 = self.categories(level);
         map1.iter().for_each(|(name, laws)| {
@@ -217,7 +216,6 @@ impl NewLaws {
 
     pub async fn from_pool(db_url: &str) -> Result<Self, sqlx::Error> {
         let mut attempts = 0;
-        let max_attempts = 5;
 
         let db_pool = match PgPoolOptions::new()
             .max_connections(5)
@@ -239,19 +237,19 @@ impl NewLaws {
             "SELECT * FROM newlaw
         ORDER BY created_at ASC;",
         )
-        .map(|row: PgRow| {
-            let lines_json: serde_json::Value = row.get("line");
-            let lines: Vec<Line> = serde_json::from_value(lines_json).unwrap();
-            NewLaw {
-                id: row.get("id"),
-                num: row.get("num"),
-                lines,
-                href: row.get("href"),
-                chapter: row.get("chapter"),
-            }
-        })
-        .fetch_all(&db_pool)
-        .await
+            .map(|row: PgRow| {
+                let lines_json: serde_json::Value = row.get("lines");
+                let lines: Vec<Line> = serde_json::from_value(lines_json).unwrap();
+                NewLaw {
+                    id: row.get("id"),
+                    num: row.get("num"),
+                    lines,
+                    href: row.get("href"),
+                    chapter: row.get("chapter"),
+                }
+            })
+            .fetch_all(&db_pool)
+            .await
         {
             Ok(lines) => Ok(NewLaws { lines }),
             Err(_e) => Err(sqlx::Error::WorkerCrashed),

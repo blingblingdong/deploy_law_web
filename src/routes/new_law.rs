@@ -1,13 +1,14 @@
 use crate::store::Store;
-use crate::types::new_law::*;
+use new_law::*;
 #[allow(unused_imports)]
 use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use indexmap::IndexMap;
-use law_rs::{law, Laws};
 use tracing::{info, instrument};
+
+
 
 
 pub async fn get_one_law(
@@ -25,6 +26,19 @@ pub async fn get_one_law(
         Ok(warp::reply::json(&l))
     } else {
         Err(warp::reject::custom(handle_errors::Error::QuestionNotFound))
+    }
+}
+
+pub async fn get_history_law(
+    lawid: String,
+    store: Store
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let lawid = percent_decode_str(&lawid).decode_utf8_lossy().to_string();
+    match store.get_historylaw(lawid).await {
+        Ok(n) => {
+            Ok(warp::reply::json(&n))
+        },
+        Err(e) => Err(warp::reject::custom(e)),
     }
 }
 

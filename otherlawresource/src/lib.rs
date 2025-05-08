@@ -855,3 +855,196 @@ pub async fn get_all_information(pool: &PgPool) -> Vec<Lawinformation> {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HistoryLaw {
+    pub id: String,
+    pub lawid: String,
+    pub date: String,
+    pub content: String,
+    pub no: i16,
+}
+
+pub async fn get_all_historylaw(pool: &PgPool) -> Vec<HistoryLaw> {
+    let result = sqlx::query("SELECT * FROM history_law")
+        .map(|row: PgRow| HistoryLaw {
+            id: row.get("id"),
+            lawid: row.get("lawid"),
+            date: row.get("date"),
+            content: row.get("content"),
+            no: row.get("no"),
+        })
+        .fetch_all(pool)
+        .await;
+
+    match result {
+        Ok(list) => list,
+        Err(e) => {
+            eprintln!("Database query failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+pub async fn get_historylaw(lawid: String, pool: &PgPool) -> Vec<HistoryLaw> {
+    let result = sqlx::query("SELECT * FROM history_law WHERE lawid  = $1")
+        .bind(lawid)
+        .map(|row: PgRow| HistoryLaw {
+            id: row.get("id"),
+            lawid: row.get("lawid"),
+            date: row.get("date"),
+            content: row.get("content"),
+            no: row.get("no"),
+        })
+        .fetch_all(pool)
+        .await;
+
+    match result {
+        Ok(list) => list,
+        Err(e) => {
+            eprintln!("Database query failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+impl HistoryLaw {
+    pub async fn add_to_pool(&self, pool: &PgPool) {
+        let query = "
+            INSERT INTO history_law (id, lawid, date, content, no)
+            VALUES ($1, $2, $3, $4, $5)";
+
+        match sqlx::query(query)
+            .bind(&self.id)
+            .bind(&self.lawid)
+            .bind(&self.date)
+            .bind(&self.content)
+            .bind(self.no)
+            .execute(pool)
+            .await
+        {
+            Ok(_) => println!("✅ Upserted: {}", self.id),
+            Err(e) => eprintln!("❌ Failed [{}]: {}", self.id, e),
+        }
+    }
+}
+
+pub async fn scrape_historylaw(
+    href: String,
+    chapter: String,
+    lawnumber: String,
+) -> Result<Vec<HistoryLaw>, Box<dyn Error>> {
+    /*
+    let html = get(href.clone()).await?.text().await?;
+    let doc = Document::from(html.as_str());
+    */
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), href);
+    println!("{path}");
+
+    println!("開檔 href: {:?} len: {}", href, href.len());
+    let mut file = File::open(&path).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+    let doc = Document::from(contents.as_str());
+
+    let mut rowvec = Vec::new();
+
+    for node in doc.find(Class("row")) {
+        rowvec.push(node);
+    }
+
+    let mut number = 0;
+    let mut no = 1;
+    let lawid = format!("{}-{}", chapter, lawnumber);
+    let mut buffer = Vec::new();
+
+    if rowvec.len() == 5 {
+        println!("{href}");
+    }
+
+    loop {
+        if number == rowvec.len() {
+            return Ok(buffer);
+        }
+
+        let date = rowvec[number].text();
+        let content = rowvec[number + 1].find(Name("pre")).next().unwrap().text();
+        let id = format!("{}-{}", lawid, no);
+        let thehistory = HistoryLaw {
+            id,
+            lawid: lawid.clone(),
+            date,
+            content,
+            no,
+        };
+
+        buffer.push(thehistory);
+
+        number += 2;
+        no += 1;
+    }
+}
+
+pub async fn scrape_historylaw2(
+    href: String,
+    chapter: String,
+) -> Result<Vec<HistoryLaw>, Box<dyn Error>> {
+    /*
+    let html = get(href.clone()).await?.text().await?;
+    let doc = Document::from(html.as_str());
+    */
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), href);
+    println!("{path}");
+
+    let mut file = File::open(&path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let doc = Document::from(contents.as_str());
+
+    let mut buffer = HistoryLaw {
+        id: uuid::Uuid::new_v4().to_string(),
+        lawid: "".to_string(),
+        date: "".to_string(),
+        content: "".to_string(),
+        no: 1,
+    };
+
+    if let Some(thedate) = doc.find(Name("b")).next() {
+        buffer.date = thedate.text();
+    }
+
+    let mut namebuffer = Vec::new();
+    for thename in doc.find(Attr("size", "4")) {
+        let name = thename.text();
+        namebuffer.push(name);
+    }
+
+    let mut contentbuffer = Vec::new();
+    for thecontent in doc.find(Class("artiupd_TH_2")) {
+        let content = thecontent.text();
+        contentbuffer.push(content);
+    }
+
+    let mut num = 0;
+    let max_length = contentbuffer.len();
+    let mut historylawbuffer = Vec::new();
+
+    loop {
+        if num == max_length {
+            return Ok(historylawbuffer);
+        }
+
+        let lawid = format!("{}-{}", chapter, namebuffer[num]);
+
+        let thebuffer = HistoryLaw {
+            id: uuid::Uuid::new_v4().to_string(),
+            lawid,
+            date: buffer.date.clone(),
+            content: contentbuffer[num].clone(),
+            no: 1,
+        };
+
+        historylawbuffer.push(thebuffer);
+        num += 1;
+    }
+}

@@ -5,7 +5,7 @@ edition = "2021"
 
 
 [dependencies]
-law_rs = {path="law_rs"}
+new_law = {path="new_law"}
 note = {path="note"}
 otherlawresource = {path="otherlawresource"}
 bytes = "1.0"
@@ -15,7 +15,7 @@ warp = "0.3"
 serde = {version = "1.0",  features = ["derive"]}
 serde_json = "1.0"
 chrono = "0.4"
-sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "migrate", "postgres"] }
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "migrate", "postgres", "chrono"] }
 percent-encoding = "2.3.1"
 indexmap = "2.5.0"
 log = "0.4"
