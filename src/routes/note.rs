@@ -1,4 +1,3 @@
-
 use crate::store::Store;
 use crate::types::account::Redis_Database;
 use crate::types::file::File;
@@ -36,10 +35,14 @@ pub async fn add_note(
     store: Store,
     note: crate::types::note::Note,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
     match store.add_note(note).await {
         Ok(note) => {
             info!("成功新增：{}", note.id);
+            let directory_id = format!("{}-{}", note.user_name, note.directory);
+            let dir = store.clone().get_directory(&directory_id).await?;
+            let mut oldorder = dir.note_order;
+            oldorder.push(note.file_name.clone());
+            store.update_note_order(directory_id, oldorder).await?;
             Ok(warp::reply::json(&note))
         }
         Err(e) => Err(warp::reject::custom(e)),
@@ -48,13 +51,13 @@ pub async fn add_note(
 
 #[derive(Deserialize, Serialize)]
 pub struct Note_Date {
-    date: String
+    date: String,
 }
 
 pub async fn update_note_date(
     id: String,
     store: Store,
-    note_date: Note_Date
+    note_date: Note_Date,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy().to_string();
 
@@ -76,23 +79,25 @@ pub async fn update_note_date(
     }
 }
 
-pub async fn get_note_date(
-    id: String,
-    store: Store,
-) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_note_date(id: String, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy().to_string();
     let date = store.get_note_date(id).await?;
     Ok(warp::reply::json(&date.to_rfc3339()))
 }
 
-pub async fn delete_note(
-    id: String,
-    store: Store,
-) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn delete_note(id: String, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let id = percent_decode_str(&id).decode_utf8_lossy();
     match store.delete_note(&id).await {
         Ok(note) => {
             let message = format!("成功刪除：{}", note.id);
+            let directory_id = format!("{}-{}", note.user_name, note.directory);
+            let dir = store.clone().get_directory(&directory_id).await?;
+            let oldorder = dir.note_order;
+            let neworder = oldorder
+                .into_iter()
+                .filter(|notename| notename != &note.file_name)
+                .collect::<Vec<String>>();
+            store.update_note_order(directory_id, neworder).await?;
             Ok(warp::reply::with_status(message, StatusCode::OK))
         }
         Err(e) => Err(warp::reject::custom(e)),
@@ -159,7 +164,7 @@ pub async fn get_content(
                 footer: None,
                 content: Some(serde_json::to_value(&block).unwrap()),
                 file_name: noteName.to_string(),
-                public: true
+                public: true,
             };
             return Ok(warp::reply::json(&note));
         }
@@ -187,26 +192,30 @@ fn gzip_string(data: &str) -> Vec<u8> {
     encoder.finish().unwrap()
 }
 
-
 pub async fn clean_redis(
     store: Store,
     mut redis: ConnectionManager,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
-    let idset: Vec<String> = redis.smembers("noteIdSet").await.map_err(|e| handle_errors::Error::CacheError(e))?;
+    let idset: Vec<String> = redis
+        .smembers("noteIdSet")
+        .await
+        .map_err(|e| handle_errors::Error::CacheError(e))?;
     for id in idset {
-        let blocks: Vec<Block> = get_gzip_json(&mut redis, &id).await.map_err(|e| handle_errors::Error::CacheError(e))?;
+        println!("ㄚㄚ{id}");
+        let blocks: Vec<Block> = get_gzip_json(&mut redis, &id)
+            .await
+            .map_err(|e| handle_errors::Error::CacheError(e))?;
         let json = serde_json::to_value(blocks).map_err(|_| handle_errors::Error::TokenNotFound)?;
-        let note = store
-            .update_the_note(json, id.clone())
-            .await?;
-        let x: String = redis.del(note.id.clone()).await.map_err(|e| handle_errors::Error::CacheError(e))?;
-        info!("{id}");
+        let note = store.update_the_note(json, id.clone()).await?;
+        let x: String = redis
+            .del(note.id.clone())
+            .await
+            .map_err(|e| handle_errors::Error::CacheError(e))?;
+        println!("ㄚㄚ{id}");
         let _: () = redis.srem("noteIdSet", note.id.clone()).await.unwrap_or(());
     }
     Ok(warp::reply::with_status("Redis Clean", StatusCode::OK))
 }
-
 
 use redis::pipe;
 use tracing_subscriber::fmt::format;
@@ -216,15 +225,20 @@ pub async fn update_content(
     mut redis: ConnectionManager,
     content: UpdateContent,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let content = update_nav(content.content);
     let blocks = note::parse_note(&content);
     let json = serde_json::to_string(&blocks).unwrap();
 
-    let _ = redis.sadd("noteIdSet", &id).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+    let _ = redis
+        .sadd("noteIdSet", &id)
+        .await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
     let compressed = gzip_string(&json);
-    let _ = redis.set(&id, &compressed).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+    let _ = redis
+        .set(&id, &compressed)
+        .await
+        .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
 
     let parts: Vec<&str> = id.split("-").collect();
     let writerName = parts[0];
@@ -238,7 +252,7 @@ pub async fn update_content(
         footer: None,
         content: Some(serde_json::to_value(blocks).unwrap()),
         file_name: noteName.to_string(),
-        public: true
+        public: true,
     };
 
     Ok(warp::reply::json(&note))
@@ -250,7 +264,6 @@ pub async fn update_name(
     store: Store,
     mut redis: ConnectionManager,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let newname = percent_decode_str(&newname).decode_utf8_lossy();
 
@@ -262,16 +275,17 @@ pub async fn update_name(
         Ok(names) => {
             if names.contains(&newname.to_string()) {
                 // 先暫時忽略錯誤類型，反正如果有重名，則回傳拒絕
-                return Err(warp::reject::custom(handle_errors::Error::CannotDecryptToken))
+                return Err(warp::reject::custom(
+                    handle_errors::Error::CannotDecryptToken,
+                ));
             }
-        },
+        }
         Err(e) => {
             // 如果根本不到資料夾或用戶，都會在這步被退回
             // e是handle_errors::Error::DatabaseQueryError(e)
-            return Err(warp::reject::custom(e))
+            return Err(warp::reject::custom(e));
         }
     }
-
 
     // 1.先查看有沒有在redis裡
     // 2.如果有：
@@ -285,13 +299,20 @@ pub async fn update_name(
     match redisResult {
         Ok(block) => {
             // 2.1銷毀
-            redis.del(id.clone()).await.map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
+            redis
+                .del(id.clone())
+                .await
+                .map_err(|e| warp::reject::custom(handle_errors::Error::CacheError(e)))?;
 
             // 2.2.1更新block
-            let oldnote = store.update_the_note(serde_json::to_value(&block).unwrap(), id.to_string()).await?;
+            let oldnote = store
+                .update_the_note(serde_json::to_value(&block).unwrap(), id.to_string())
+                .await?;
             let newid = format!("{}-{}-{newname}", oldnote.user_name, oldnote.directory);
             //2.2.2更新筆記名
-            let note = store.update_note_name(id.to_string(), newname.to_string(), newid).await?;
+            let note = store
+                .update_note_name(id.to_string(), newname.to_string(), newid)
+                .await?;
 
             Ok(warp::reply::json(&note))
         }
@@ -299,11 +320,12 @@ pub async fn update_name(
             info!("not in redis");
             //3.1更新筆記名
             let newid = format!("{writerName}-{dirName}-{newname}");
-            let note = store.update_note_name(id.to_string(), newname.to_string(), newid).await?;
+            let note = store
+                .update_note_name(id.to_string(), newname.to_string(), newid)
+                .await?;
             Ok(warp::reply::json(&note))
         }
     }
-
 }
 
 pub async fn update_state(
@@ -311,30 +333,25 @@ pub async fn update_state(
     state: String,
     store: Store,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let state = percent_decode_str(&state).decode_utf8_lossy().to_string();
     let public: bool;
 
-    if(&state == "true") {
+    if (&state == "true") {
         public = true;
     } else if (&state == "false") {
         public = false;
     } else {
-        return Err(warp::reject::custom(handle_errors::Error::CannotDecryptToken))
+        return Err(warp::reject::custom(
+            handle_errors::Error::CannotDecryptToken,
+        ));
     }
 
     match store.update_note_state(id.to_string(), public).await {
-        Ok(id) => {
-            Ok(warp::reply::Response::new(id.into()))
-        },
-        Err(e) => {
-            Err(warp::reject::custom(e))
-        },
+        Ok(id) => Ok(warp::reply::Response::new(id.into())),
+        Err(e) => Err(warp::reject::custom(e)),
     }
-
 }
-
 
 pub async fn get_every_note(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
     let notes = store.get_every_note().await?;
@@ -472,7 +489,14 @@ pub async fn delete_file(id: String, store: Store) -> Result<impl warp::Reply, w
     let res = match store.delete_note(&id.to_string()).await {
         Ok(note) => {
             info!("成功刪除筆記：{}", note.id);
-            note
+            let directory_id = format!("{}-{}", note.user_name, note.directory);
+            let dir = store.clone().get_directory(&directory_id).await?;
+            let oldorder = dir.note_order;
+            let neworder = oldorder
+                .into_iter()
+                .filter(|notename| notename != &note.file_name)
+                .collect::<Vec<String>>();
+            store.update_note_order(directory_id, neworder).await?;
         }
         Err(e) => return Err(warp::reject::custom(e)),
     };
@@ -528,7 +552,11 @@ pub struct H3Nav {
     text: String,
 }
 
-pub async fn get_note_nav(id: String, store: Store, mut redis: ConnectionManager,) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn get_note_nav(
+    id: String,
+    store: Store,
+    mut redis: ConnectionManager,
+) -> Result<impl warp::Reply, warp::Rejection> {
     let mut h2NavVec = Vec::new();
     let id = percent_decode_str(&id).decode_utf8_lossy();
     let mut blocks: Vec<Block>;

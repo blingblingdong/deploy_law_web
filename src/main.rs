@@ -4,16 +4,16 @@ mod store;
 use redis::aio::ConnectionManager;
 use redis::{AsyncCommands, Client, RedisError, RedisResult};
 pub mod types;
+use crate::routes::note::get_gzip_json;
 use config::Config;
 #[allow(unused_imports)]
 use handle_errors::return_error;
+use note::Block;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use note::Block;
 use tokio::time::{interval, Duration};
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Method, Filter};
-use crate::routes::note::get_gzip_json;
 
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub struct Args {
@@ -32,44 +32,16 @@ macro_rules! trace_async {
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
     let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
-
-
-    let client = Client::open("redis://default:YezaUpCuecITVAKhENlObxOddVrcGRHH@autorack.proxy.rlwy.net:33895").unwrap();
-    let mut manager = ConnectionManager::new(client).await.unwrap();
-
-    let idset: Vec<String> = manager.del("noteIdSet").await.unwrap();
-
-    /*
-    let idset: Vec<String>= manager.smembers("noteIdSet").await.unwrap();
-    for id in idset {
-        let redisResult: Result<Vec<Block>, redis::RedisError> = get_gzip_json(&mut manager, &id).await;
-        match redisResult {
-            Ok(blocks) => {
-                let note = store.update_the_note(serde_json::to_value(blocks).unwrap(), id.clone()).await.unwrap();
-                println!("{}", note.id);
-                let x: Result<String, redis::RedisError> = manager.clone().del(id.clone()).await;
-                match x {
-                    Ok(_) => {
-                        println!("{id} been del");
-                        let _:() = manager.clone().srem("noteIdSet", id.clone()).await.unwrap();
-                    }
-                    _ => {}
-                }
-            },
-            Err(_) => {}
-        }
+    let dirlist = store.clone().get_directory_pub().await.unwrap();
+    for dir in dirlist {
+        let notelist = store.get_note_user(&dir.user_name, &dir.directory).await.unwrap()
+            .iter().map(|note| note.file_name.clone()).collect::<Vec<String>>();
+        let _ = store.clone().update_note_order(dir.id, notelist).await.unwrap();
     }
-     */
-
-
 
     Ok(())
 }
-
- */
-
-
-
+*/
 
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
@@ -111,7 +83,6 @@ async fn main() -> Result<(), handle_errors::Error> {
     println!("{}", db_url);
     let store = store::Store::new(&db_url).await;
 
-
     // 建立redis資料庫聯繫
     let redis_url = std::env::var("REDIS_PUBLIC_URL").unwrap_or("redis://127.0.0.1/".to_string());
     println!("{}", redis_url);
@@ -119,14 +90,12 @@ async fn main() -> Result<(), handle_errors::Error> {
     let manager = ConnectionManager::new(client).await.unwrap();
 
     let mut new_inters = store.clone().get_newinterpretations().await?;
-    new_inters.sort_by(|a, b|{
-        (a.year, a.number).cmp(&(b.year, b.number))
-    });
+    new_inters.sort_by(|a, b| (a.year, a.number).cmp(&(b.year, b.number)));
     let new_inter_shared = Arc::new(new_inters);
     let new_inters_filter = warp::any().map(move || new_inter_shared.clone());
 
     let mut old_inters = store.clone().get_all_oldinterpretation().await?;
-    old_inters.sort_by(|a, b|{
+    old_inters.sort_by(|a, b| {
         let a_num = a.id.parse().unwrap_or(0);
         let b_num = b.id.parse().unwrap_or(0);
         a_num.cmp(&b_num)
@@ -136,16 +105,12 @@ async fn main() -> Result<(), handle_errors::Error> {
     let old_inters_filter = warp::any().map(move || old_inter_shared.clone());
 
     let mut resolutions = store.clone().get_all_resolution().await?;
-    resolutions.sort_by(|a, b|{
-        (a.year, a.time).cmp(&(b.year, b.time))
-    });
+    resolutions.sort_by(|a, b| (a.year, a.time).cmp(&(b.year, b.time)));
     let resolution_shared = Arc::new(resolutions);
     let resolution_filter = warp::any().map(move || resolution_shared.clone());
 
     let mut precedents = store.clone().get_all_precedents().await?;
-    precedents.sort_by(|a, b|{
-        (a.year, a.num).cmp(&(b.year, b.num))
-    });
+    precedents.sort_by(|a, b| (a.year, a.num).cmp(&(b.year, b.num)));
     precedents.reverse();
     let precedents_shared = Arc::new(precedents);
     let pecedent_filter = warp::any().map(move || precedents_shared.clone());
@@ -158,7 +123,6 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let store_filter = warp::any().map(move || store.clone());
     let redis_filter = warp::any().map(move || manager.clone());
-
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -192,7 +156,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::note::get_note_list);
 
-
+    let update_note_order = warp::put()
+        .and(warp::path("note_order"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::directory::update_note_order);
 
     let update_note = warp::put()
         .and(warp::path("note"))
@@ -311,8 +282,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::get_file_list2);
 
-
-
     let get_dir_for_pop = warp::get()
         .and(warp::path("dir_for_pop"))
         .and(warp::path::param::<String>())
@@ -347,7 +316,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::body::json())
         .and_then(routes::note::update_note_date);
 
-
     let get_all_chapter = warp::get()
         .and(warp::path("allChapter"))
         .and(warp::path::param::<String>())
@@ -362,19 +330,11 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_all_lawList);
 
-
-
-
-
     let get_all_chapters = warp::get()
         .and(warp::path("all_chapters"))
         .and(warp::path::end())
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_all_chapters);
-
-
-
-
 
     let get_lawList_by_chapter = warp::post()
         .and(warp::path("lawList_by_chapter"))
@@ -382,8 +342,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and(warp::body::json())
         .and_then(routes::new_law::get_lawList_by_chapter);
-
-
 
     let add_file = warp::post()
         .and(warp::path("file"))
@@ -450,8 +408,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and(new_law_filter.clone())
         .and_then(routes::new_law::get_one_law);
-
-
 
     let delete_file = warp::delete()
         .and(warp::path("file"))
@@ -547,6 +503,12 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::otherlawresource::get_newinter_by_id);
 
+    let get_note_order = warp::get()
+        .and(warp::path!("note_order" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::directory::get_note_order);
+
     let get_oldinter_by_id = warp::get()
         .and(warp::path!("oldinterpretation" / String))
         .and(warp::path::end())
@@ -589,6 +551,10 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::otherlawresource::get_note_list_user);
 
+    let get_folder_list = warp::get()
+        .and(warp::path("folderlist"))
+        .and(store_filter.clone())
+        .and_then(routes::otherlawresource::get_folder_list_user);
 
     let are_you_in_redis = warp::post()
         .and(warp::path("find_token_in_redis"))
@@ -597,16 +563,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and_then(routes::authentication::are_you_in_redis);
 
     // 3. 建立路由：GET /get?key=xxx
-    let get_route = warp::path("get")
-        .and(warp::query::<std::collections::HashMap<String, String>>())
-        .and(redis_filter.clone())
-        .and_then(handle_get);
-
-    // 4. 路由：POST /set?key=xxx&value=yyy
-    let set_route = warp::path("set")
-        .and(warp::query::<std::collections::HashMap<String, String>>())
-        .and(redis_filter.clone())
-        .and_then(handle_set);
 
     // let static_files = warp::fs::dir("static");
 
@@ -614,6 +570,8 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let routes = clean_redis
         .or(get_library_item)
+        .or(get_folder_list)
+        .or(get_note_order)
         .or(get_library)
         .or(add_library)
         .or(add_library_item)
@@ -637,8 +595,6 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(get_oldinters)
         .or(get_precedents)
         .or(get_resolutions)
-        .or(set_route)
-        .or(get_route)
         .or(get_every_notes)
         .or(get_note_nav)
         .or(get_note_list)
@@ -673,44 +629,11 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(get_every_files)
         .or(get_all_chapter)
         .or(get_dir_gallery)
+        .or(update_note_order)
         .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);
     warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
-
-
-
-
     Ok(())
 }
-
-// GET handler
-async fn handle_get(
-    params: std::collections::HashMap<String, String>,
-    mut redis: ConnectionManager,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let key = params.get("key").cloned().unwrap_or_default();
-    let result: redis::RedisResult<String> = redis.get(&key).await;
-
-    Ok(match result {
-        Ok(val) => format!("Value: {}", val),
-        Err(_) => "Key not found".to_string(),
-    })
-}
-
-// SET handler
-async fn handle_set(
-    params: std::collections::HashMap<String, String>,
-    mut redis: ConnectionManager,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let key = params.get("key").cloned().unwrap_or_default();
-    let value = params.get("value").cloned().unwrap_or_default();
-
-    let _: redis::RedisResult<()> = redis.set(&key, &value).await;
-    Ok(format!("Saved key={} value={}", key, value))
-}
-
-
-
-

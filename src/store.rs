@@ -2,13 +2,13 @@ use crate::types::account::Account;
 use crate::types::directory::Directory;
 use crate::types::file::{File, Files};
 use crate::types::note::Note;
+use crate::types::Library::{Library, LibraryItem};
 use argon2::Config;
 use chrono::Utc;
 use log::error;
 use rand::Rng;
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::{PgPool, Row};
-use crate::types::Library::{Library, LibraryItem};
 
 #[derive(Clone)]
 pub struct Store {
@@ -79,6 +79,23 @@ impl Store {
         }
     }
 
+    pub async fn get_every_folder(
+        &self,
+    ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
+        match sqlx::query("SELECT * from directory")
+            .map(|row: PgRow| otherlawresource::OtherSourceList {
+                id: row.get("id"),
+                name: row.get("directory"),
+                sourcetype: "folder".to_string(),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(dcs) => Ok(dcs),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn get_every_note(&self) -> Result<Vec<Note>, handle_errors::Error> {
         match sqlx::query("SELECT * from note")
             .map(|row: PgRow| Note {
@@ -88,7 +105,7 @@ impl Store {
                 user_name: row.get("user_name"),
                 directory: row.get("directory"),
                 file_name: row.get("file_name"),
-                public: row.get("public")
+                public: row.get("public"),
             })
             .fetch_all(&self.connection)
             .await
@@ -270,10 +287,6 @@ impl Store {
         }
     }
 
-
-
-
-
     pub async fn update_directory(
         &self,
         public: bool,
@@ -295,6 +308,7 @@ impl Store {
             directory: row.get("directory"),
             public: row.get("public"),
             description: row.get("description"),
+            note_order: row.get("note_order"),
         })
         .fetch_one(&self.connection)
         .await
@@ -316,20 +330,20 @@ impl Store {
             WHERE id = $3
              RETURNING id, user_name, directory, file_name, content, footer, public",
         )
-            .bind(new_id)
-            .bind(file_name)
-            .bind(id)
-            .map(|row: PgRow| Note {
-                id: row.get("id"),
-                user_name: row.get("user_name"),
-                directory: row.get("directory"),
-                file_name: row.get("file_name"),
-                footer: row.get("footer"),
-                content: row.get("content"),
-                public: row.get("public")
-            })
-            .fetch_one(&self.connection)
-            .await
+        .bind(new_id)
+        .bind(file_name)
+        .bind(id)
+        .map(|row: PgRow| Note {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            file_name: row.get("file_name"),
+            footer: row.get("footer"),
+            content: row.get("content"),
+            public: row.get("public"),
+        })
+        .fetch_one(&self.connection)
+        .await
         {
             Ok(note) => Ok(note),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -347,14 +361,14 @@ impl Store {
             WHERE id = $2
             RETURNING id",
         )
-            .bind(public)
-            .bind(id)
-            .map(|row: PgRow| {
-                let id: String = row.get("id");
-                id
-            })
-            .fetch_one(&self.connection)
-            .await
+        .bind(public)
+        .bind(id)
+        .map(|row: PgRow| {
+            let id: String = row.get("id");
+            id
+        })
+        .fetch_one(&self.connection)
+        .await
         {
             Ok(id) => Ok(id),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -379,7 +393,7 @@ impl Store {
             user_name: row.get("user_name"),
             directory: row.get("directory"),
             file_name: row.get("file_name"),
-            public: row.get("public")
+            public: row.get("public"),
         })
         .fetch_all(&self.connection)
         .await
@@ -398,14 +412,14 @@ impl Store {
             "SELECT file_name from note
         WHERE user_name = $1 AND directory = $2",
         )
-            .bind(user_name)
-            .bind(directory)
-            .map(|row: PgRow| {
-                let name: String = row.get("file_name");
-                name
-            })
-            .fetch_all(&self.connection)
-            .await
+        .bind(user_name)
+        .bind(directory)
+        .map(|row: PgRow| {
+            let name: String = row.get("file_name");
+            name
+        })
+        .fetch_all(&self.connection)
+        .await
         {
             Ok(names) => Ok(names),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -420,15 +434,15 @@ impl Store {
             "SELECT * from note
         WHERE user_name = $1 AND public = $2",
         )
-            .bind(user_name)
-            .bind(true)
-            .map(|row: PgRow| otherlawresource::OtherSourceList {
-                id: row.get("id"),
-                name: row.get("file_name"),
-                sourcetype: "note".to_string(),
-            })
-            .fetch_all(&self.connection)
-            .await
+        .bind(user_name)
+        .bind(true)
+        .map(|row: PgRow| otherlawresource::OtherSourceList {
+            id: row.get("id"),
+            name: row.get("file_name"),
+            sourcetype: "note".to_string(),
+        })
+        .fetch_all(&self.connection)
+        .await
         {
             Ok(list) => Ok(list),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -455,7 +469,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
-            public: row.get("public")
+            public: row.get("public"),
         })
         .fetch_one(&self.connection)
         .await
@@ -479,7 +493,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
-            public: row.get("public")
+            public: row.get("public"),
         })
         .fetch_one(&self.connection)
         .await
@@ -489,23 +503,49 @@ impl Store {
         }
     }
 
-
-
-    pub async fn get_note_date(&self, id: String) -> Result<chrono::DateTime<Utc>, handle_errors::Error> {
+    pub async fn get_note_date(
+        &self,
+        id: String,
+    ) -> Result<chrono::DateTime<Utc>, handle_errors::Error> {
         match sqlx::query(
             "SELECT date
             FROM note
             WHERE id = $1",
         )
-            .bind(id)
-            .map(|row: PgRow| {
-                let date:chrono::DateTime<Utc> = row.get("date");
-                date
-            })
-            .fetch_one(&self.connection)
-            .await
+        .bind(id)
+        .map(|row: PgRow| {
+            let date: chrono::DateTime<Utc> = row.get("date");
+            date
+        })
+        .fetch_one(&self.connection)
+        .await
         {
             Ok(date) => Ok(date),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_note_order(
+        &self,
+        dir_id: String,
+        order_list: Vec<String>,
+    ) -> Result<String, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE directory
+            SET note_order = $1
+            WHERE id = $2
+            RETURNING id",
+        )
+        .bind(order_list)
+        .bind(dir_id)
+        .map(|row: PgRow| {
+            let id: String = row.get("id");
+            id
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(id) => Ok(id),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
@@ -513,7 +553,7 @@ impl Store {
     pub async fn update_note_date(
         &self,
         id: String,
-        date: chrono::DateTime<Utc>
+        date: chrono::DateTime<Utc>,
     ) -> Result<String, handle_errors::Error> {
         match sqlx::query(
             "UPDATE note
@@ -521,14 +561,14 @@ impl Store {
             WHERE id = $2
             RETURNING id",
         )
-            .bind(date)
-            .bind(id)
-            .map(|row: PgRow| {
-                let id: String = row.get("id");
-                id
-            })
-            .fetch_one(&self.connection)
-            .await
+        .bind(date)
+        .bind(id)
+        .map(|row: PgRow| {
+            let id: String = row.get("id");
+            id
+        })
+        .fetch_one(&self.connection)
+        .await
         {
             Ok(id) => Ok(id),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -549,7 +589,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
-            public: row.get("public")
+            public: row.get("public"),
         })
         .fetch_one(&self.connection)
         .await
@@ -571,7 +611,7 @@ impl Store {
         .bind(note.file_name)
         .bind(note.content)
         .bind(note.footer)
-            .bind(note.public)
+        .bind(note.public)
         .map(|row: PgRow| Note {
             id: row.get("id"),
             user_name: row.get("user_name"),
@@ -579,7 +619,7 @@ impl Store {
             file_name: row.get("file_name"),
             footer: row.get("footer"),
             content: row.get("content"),
-            public: row.get("public")
+            public: row.get("public"),
         })
         .fetch_one(&self.connection)
         .await
@@ -609,6 +649,7 @@ impl Store {
             directory: row.get("directory"),
             public: row.get("public"),
             description: row.get("description"),
+            note_order: row.get("note_order"),
         })
         .fetch_one(&self.connection)
         .await
@@ -630,6 +671,7 @@ impl Store {
             directory: row.get("directory"),
             public: row.get("public"),
             description: row.get("description"),
+            note_order: row.get("note_order"),
         })
         .fetch_one(&self.connection)
         .await
@@ -654,6 +696,7 @@ impl Store {
             directory: row.get("directory"),
             public: row.get("public"),
             description: row.get("description"),
+            note_order: row.get("note_order"),
         })
         .fetch_all(&self.connection)
         .await
@@ -674,6 +717,7 @@ impl Store {
             directory: row.get("directory"),
             public: row.get("public"),
             description: row.get("description"),
+            note_order: row.get("note_order"),
         })
         .fetch_all(&self.connection)
         .await
@@ -762,14 +806,13 @@ impl Store {
             .map(|row: PgRow| {
                 let year: String = row.get("year");
                 let number: String = row.get("number");
-                let name =  format!("{}憲判{}", year, number);
-                otherlawresource::OtherSourceList{
-                id: row.get("id"),
-                name,
-                sourcetype: "newinterpretation".to_string(),
-
-            }
-                })
+                let name = format!("{}憲判{}", year, number);
+                otherlawresource::OtherSourceList {
+                    id: row.get("id"),
+                    name,
+                    sourcetype: "newinterpretation".to_string(),
+                }
+            })
             .fetch_all(&self.connection)
             .await
         {
@@ -778,36 +821,33 @@ impl Store {
         }
     }
 
-
-        pub async fn get_newinterpretation_by_id(
-            &self,
-            id: String,
-        ) -> Result<otherlawresource::NewInter, handle_errors::Error> {
-            match sqlx::query("SELECT * FROM newinters WHERE id = $1")
-                .bind(id)
-                .map(|row: PgRow| otherlawresource::NewInter {
-                    id: row.get("id"),
-                    casename: row.get("casename"),
-                    casesummary: row.get("casesummary"),
-                    maincontent: row.get("maincontent"),
-                    date: row.get("date"),
-                    reason: row.get("reason"),
-                    related_law: row.get("related_law"),
-                    source: row.get("source"),
-                    name: row.get("name"),
-                    year: row.get("year"),
-                    number: row.get("number"),
-                    reflaws: row.get("reflaws"),
-                })
-                .fetch_one(&self.connection)
-                .await
-            {
-                Ok(res) => Ok(res),
-                Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
-            }
+    pub async fn get_newinterpretation_by_id(
+        &self,
+        id: String,
+    ) -> Result<otherlawresource::NewInter, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM newinters WHERE id = $1")
+            .bind(id)
+            .map(|row: PgRow| otherlawresource::NewInter {
+                id: row.get("id"),
+                casename: row.get("casename"),
+                casesummary: row.get("casesummary"),
+                maincontent: row.get("maincontent"),
+                date: row.get("date"),
+                reason: row.get("reason"),
+                related_law: row.get("related_law"),
+                source: row.get("source"),
+                name: row.get("name"),
+                year: row.get("year"),
+                number: row.get("number"),
+                reflaws: row.get("reflaws"),
+            })
+            .fetch_one(&self.connection)
+            .await
+        {
+            Ok(res) => Ok(res),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
-
-
+    }
 
     pub async fn get_all_resolution(
         self,
@@ -835,12 +875,11 @@ impl Store {
         &self,
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
         match sqlx::query("SELECT id, name FROM resolution")
-            .map(|row: PgRow| {
-                otherlawresource::OtherSourceList{
-                    id: row.get("id"),
-                    name: row.get("name"),
-                    sourcetype: "resolution".to_string()
-                }})
+            .map(|row: PgRow| otherlawresource::OtherSourceList {
+                id: row.get("id"),
+                name: row.get("name"),
+                sourcetype: "resolution".to_string(),
+            })
             .fetch_all(&self.connection)
             .await
         {
@@ -873,8 +912,6 @@ impl Store {
         }
     }
 
-
-
     pub async fn get_all_oldinterpretation(
         &self,
     ) -> Result<Vec<otherlawresource::OldInterpretation>, handle_errors::Error> {
@@ -906,11 +943,12 @@ impl Store {
             .map(|row: PgRow| {
                 let id: String = row.get("id");
                 let name = format!("釋字{}", id.clone());
-                otherlawresource::OtherSourceList{
+                otherlawresource::OtherSourceList {
                     id: id.clone(),
                     name: name,
-                    sourcetype: "oldinterpretation".to_string()
-                }})
+                    sourcetype: "oldinterpretation".to_string(),
+                }
+            })
             .fetch_all(&self.connection)
             .await
         {
@@ -945,8 +983,6 @@ impl Store {
         }
     }
 
-
-
     pub async fn get_all_precedents(
         &self,
     ) -> Result<Vec<otherlawresource::Precedent>, handle_errors::Error> {
@@ -972,10 +1008,10 @@ impl Store {
         &self,
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
         match sqlx::query("SELECT id, name FROM precedents")
-            .map(|row: PgRow| otherlawresource::OtherSourceList{
+            .map(|row: PgRow| otherlawresource::OtherSourceList {
                 id: row.get("id"),
                 name: row.get("name"),
-                sourcetype: "precedent".to_string()
+                sourcetype: "precedent".to_string(),
             })
             .fetch_all(&self.connection)
             .await
@@ -984,7 +1020,6 @@ impl Store {
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
-
 
     pub async fn get_precedent_by_id(
         &self,
@@ -1009,7 +1044,10 @@ impl Store {
         }
     }
 
-    pub async fn get_historylaw(&self, lawid: String) -> Result<Vec<otherlawresource::HistoryLaw>, handle_errors::Error> {
+    pub async fn get_historylaw(
+        &self,
+        lawid: String,
+    ) -> Result<Vec<otherlawresource::HistoryLaw>, handle_errors::Error> {
         match sqlx::query("SELECT * FROM history_law WHERE lawid  = $1")
             .bind(lawid)
             .map(|row: PgRow| otherlawresource::HistoryLaw {
@@ -1031,52 +1069,56 @@ impl Store {
         match sqlx::query(
             "INSERT INTO library (id, library_name, user_name, public)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, library_name, user_name, public"
+         RETURNING id, library_name, user_name, public",
         )
-            .bind(&library.id)
-            .bind(&library.library_name)
-            .bind(&library.user_name)
-            .bind(library.public)
-            .map(|row: PgRow| Library {
-                id: row.get("id"),
-                library_name: row.get("library_name"),
-                user_name: row.get("user_name"),
-                public: row.get("public"),
-            })
-            .fetch_one(&self.connection)
-            .await {
+        .bind(&library.id)
+        .bind(&library.library_name)
+        .bind(&library.user_name)
+        .bind(library.public)
+        .map(|row: PgRow| Library {
+            id: row.get("id"),
+            library_name: row.get("library_name"),
+            user_name: row.get("user_name"),
+            public: row.get("public"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
             Ok(library) => Ok(library),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
 
-    pub async fn add_library_item(&self, item: LibraryItem) -> Result<LibraryItem, handle_errors::Error> {
+    pub async fn add_library_item(
+        &self,
+        item: LibraryItem,
+    ) -> Result<LibraryItem, handle_errors::Error> {
         match sqlx::query(
             "INSERT INTO library_item (id, item_library, item_type, item_name, item_id, ordering)
          VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, item_library, item_type, item_name, item_id, ordering"
+         RETURNING id, item_library, item_type, item_name, item_id, ordering",
         )
-            .bind(&item.id)
-            .bind(&item.item_library)
-            .bind(&item.item_type)
-            .bind(&item.item_name)
-            .bind(item.item_id)
-            .bind(item.order)
-            .map(|row: PgRow| LibraryItem {
-                id: row.get("id"),
-                item_id: row.get("item_id"),
-                item_library: row.get("item_library"),
-                item_type: row.get("item_type"),
-                item_name: row.get("item_name"),
-                order: row.get("ordering"),
-            })
-            .fetch_one(&self.connection)
-            .await {
+        .bind(&item.id)
+        .bind(&item.item_library)
+        .bind(&item.item_type)
+        .bind(&item.item_name)
+        .bind(item.item_id)
+        .bind(item.order)
+        .map(|row: PgRow| LibraryItem {
+            id: row.get("id"),
+            item_id: row.get("item_id"),
+            item_library: row.get("item_library"),
+            item_type: row.get("item_type"),
+            item_name: row.get("item_name"),
+            order: row.get("ordering"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
             Ok(item) => Ok(item),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
-
 
     pub async fn get_library_user(
         self,
@@ -1086,15 +1128,15 @@ impl Store {
             "SELECT * FROM library
          WHERE user_name = $1",
         )
-            .bind(user_name)
-            .map(|row: PgRow| Library {
-                id: row.get("id"),
-                library_name: row.get("library_name"),
-                user_name: row.get("user_name"),
-                public: row.get("public"),
-            })
-            .fetch_all(&self.connection)
-            .await
+        .bind(user_name)
+        .map(|row: PgRow| Library {
+            id: row.get("id"),
+            library_name: row.get("library_name"),
+            user_name: row.get("user_name"),
+            public: row.get("public"),
+        })
+        .fetch_all(&self.connection)
+        .await
         {
             Ok(libraries) => Ok(libraries),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
@@ -1110,26 +1152,20 @@ impl Store {
          WHERE item_library = $1
          ORDER BY ordering DESC",
         )
-            .bind(library_id)
-            .map(|row: PgRow| LibraryItem {
-                id: row.get("id"),
-                item_library: row.get("item_library"),
-                item_type: row.get("item_type"),
-                item_id: row.get("item_id"),
-                item_name: row.get("item_name"),
-                order: row.get("ordering"),
-            })
-            .fetch_all(&self.connection)
-            .await
+        .bind(library_id)
+        .map(|row: PgRow| LibraryItem {
+            id: row.get("id"),
+            item_library: row.get("item_library"),
+            item_type: row.get("item_type"),
+            item_id: row.get("item_id"),
+            item_name: row.get("item_name"),
+            order: row.get("ordering"),
+        })
+        .fetch_all(&self.connection)
+        .await
         {
             Ok(items) => Ok(items),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }
-
-
-
-
-
 }
-

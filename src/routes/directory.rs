@@ -70,7 +70,6 @@ pub async fn get_pub_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejecti
 }
 
 pub async fn get_gallery_dir(stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
-
     match stroe.get_directory_pub().await {
         Ok(dirs) => Ok(warp::reply::json(&dirs)),
         Err(e) => Err(warp::reject::custom(e)),
@@ -111,4 +110,28 @@ pub async fn get_dir_for_pop(
             s.push_str(&str);
         });
     Ok(warp::reply::html(s))
+}
+
+pub async fn update_note_order(
+    user_name: String,
+    dir_name: String,
+    store: Store,
+    list: Vec<String>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut s = String::new();
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let dir_name = percent_decode_str(&dir_name).decode_utf8_lossy();
+    let dir_id = format!("{user_name}-{dir_name}");
+    match store.update_note_order(dir_id, list).await {
+        Ok(dir) => Ok(warp::reply::html(dir)),
+        Err(e) => Err(warp::reject::custom(e)),
+    }
+}
+
+pub async fn get_note_order(id: String, stroe: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let id = percent_decode_str(&id).decode_utf8_lossy();
+    match stroe.get_directory(&id).await {
+        Ok(dir) => Ok(warp::reply::json(&dir.note_order)),
+        Err(e) => Err(warp::reject::custom(e)),
+    }
 }

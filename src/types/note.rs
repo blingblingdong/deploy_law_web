@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -11,4 +10,3 @@ pub struct Note {
     pub file_name: String,
     pub public: bool,
 }
-

@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
-
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Directory {
     pub id: String, //(user_name + directory),
@@ -9,5 +7,5 @@ pub struct Directory {
     pub directory: String,
     pub public: bool,
     pub description: String,
+    pub note_order: Vec<String>,
 }
-
