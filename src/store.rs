@@ -287,6 +287,29 @@ impl Store {
         }
     }
 
+    pub async fn delete_directory(&self, id: String) -> Result<Directory, handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM directory
+            Where id = $1
+           RETURNING id, user_name, directory, public, description note_order",
+        )
+        .bind(id)
+        .map(|row: PgRow| Directory {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            directory: row.get("directory"),
+            public: row.get("public"),
+            description: row.get("description"),
+            note_order: row.get("note_order"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(directory) => Ok(directory),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
     pub async fn update_directory(
         &self,
         public: bool,
@@ -297,7 +320,7 @@ impl Store {
             "UPDATE directory 
             SET public = $1, description = $2
             WHERE id = $3
-            RETURNING id, user_name, directory, public, description",
+            RETURNING id, user_name, directory, public, description note_order",
         )
         .bind(public)
         .bind(description)
@@ -428,13 +451,11 @@ impl Store {
 
     pub async fn get_notelist_user(
         &self,
-        user_name: &str,
     ) -> Result<Vec<otherlawresource::OtherSourceList>, handle_errors::Error> {
         match sqlx::query(
             "SELECT * from note
-        WHERE user_name = $1 AND public = $2",
+        WHERE public = $1",
         )
-        .bind(user_name)
         .bind(true)
         .map(|row: PgRow| otherlawresource::OtherSourceList {
             id: row.get("id"),
@@ -571,6 +592,20 @@ impl Store {
         .await
         {
             Ok(id) => Ok(id),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn delete_folder_note(&self, folder_name: &str) -> Result<(), handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM note
+            Where directory = $1",
+        )
+        .bind(folder_name)
+        .execute(&self.connection)
+        .await
+        {
+            Ok(_) => Ok(()),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }

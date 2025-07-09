@@ -154,14 +154,10 @@ pub async fn get_all_lawname_list(
     Ok(warp::reply::json(&buffer))
 }
 
-pub async fn get_note_list_user(
-    username: String,
-    store: Store,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let username = percent_decode_str(&username).decode_utf8_lossy();
-    match store.get_notelist_user(&username.to_string()).await {
+pub async fn get_note_list_user(store: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    match store.get_notelist_user().await {
         Ok(list) => Ok(warp::reply::json(&list)),
-        Err(_) => Err(warp::reject::custom(handle_errors::Error::QuestionNotFound)),
+        Err(e) => Err(warp::reject::custom(e)),
     }
 }
 

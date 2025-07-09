@@ -89,6 +89,23 @@ pub async fn add_dir(
     }
 }
 
+pub async fn delete_dir(
+    user_name: String,
+    dir_name: String,
+    store: Store,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let user_name = percent_decode_str(&user_name).decode_utf8_lossy();
+    let dir_name = percent_decode_str(&dir_name).decode_utf8_lossy();
+    let id = format!("{user_name}-{dir_name}");
+    match store.delete_directory(id).await {
+        Ok(dir) => {
+            store.delete_folder_note(dir_name.as_ref()).await?;
+            Ok(warp::reply::with_status("Directory added", StatusCode::OK))
+        }
+        Err(e) => Err(warp::reject::custom(e)),
+    }
+}
+
 pub async fn get_dir_for_pop(
     user_name: String,
     stroe: Store,

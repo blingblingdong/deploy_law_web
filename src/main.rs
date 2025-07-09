@@ -416,6 +416,14 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(store_filter.clone())
         .and_then(routes::file::delete_file);
 
+    let delete_folder = warp::delete()
+        .and(warp::path("folder"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::directory::delete_dir);
+
     let get_pdf = warp::get()
         .and(warp::path("pdf"))
         .and(warp::path::param::<String>())
@@ -547,7 +555,6 @@ async fn main() -> Result<(), handle_errors::Error> {
 
     let get_note_list_user = warp::get()
         .and(warp::path("notelist"))
-        .and(warp::path::param::<String>())
         .and(store_filter.clone())
         .and_then(routes::otherlawresource::get_note_list_user);
 
@@ -625,6 +632,7 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(add_file)
         .or(update_content)
         .or(delete_file)
+        .or(delete_folder)
         .or(get_file_list2)
         .or(get_every_files)
         .or(get_all_chapter)
