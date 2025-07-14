@@ -32,13 +32,24 @@ macro_rules! trace_async {
 #[tokio::main]
 async fn main() -> Result<(), handle_errors::Error> {
     let store = store::Store::new("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
-    let dirlist = store.clone().get_directory_pub().await.unwrap();
-    for dir in dirlist {
-        let notelist = store.get_note_user(&dir.user_name, &dir.directory).await.unwrap()
-            .iter().map(|note| note.file_name.clone()).collect::<Vec<String>>();
-        let _ = store.clone().update_note_order(dir.id, notelist).await.unwrap();
-    }
-
+    let vec = vec![
+        "競合".to_string(),
+        "原因自由行為".to_string(),
+        "1.形式與實質？".to_string(),
+        "2.原則、原則、原則".to_string(),
+        "3.時與地的效力".to_string(),
+        "4.法律解釋".to_string(),
+        "5.犯罪基本類型".to_string(),
+        "6.刑法行為".to_string(),
+        "7.構成要件".to_string(),
+        "8.因果關係與客觀可歸責".to_string(),
+        "9.主觀構成要件".to_string(),
+        "10.違法性".to_string(),
+    ];
+    store
+        .update_note_order("test_user-刑法總則".to_string(), vec)
+        .await
+        .unwrap();
     Ok(())
 }
 */

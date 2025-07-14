@@ -269,6 +269,7 @@ pub async fn update_name(
 
     let parts: Vec<&str> = id.split("-").collect();
     let writerName = parts.get(0).unwrap_or(&"no");
+    let oldName = parts.get(2).unwrap_or(&"no");
     let dirName = parts.get(1).unwrap_or(&"no");
 
     match store.get_note_name_by_dir(writerName, dirName).await {
@@ -313,6 +314,21 @@ pub async fn update_name(
             let note = store
                 .update_note_name(id.to_string(), newname.to_string(), newid)
                 .await?;
+            //2.2.3更新成功後，更新order表
+            let dir_id = format!("{writerName}-{dirName}");
+            let dir = store.clone().get_directory(&dir_id).await?;
+            let new_order: Vec<String> = dir
+                .note_order
+                .iter()
+                .map(|name| {
+                    if name == &oldName.to_string() {
+                        newname.to_string()
+                    } else {
+                        name.clone()
+                    }
+                })
+                .collect();
+            store.update_note_order(dir_id, new_order).await?;
 
             Ok(warp::reply::json(&note))
         }
@@ -323,6 +339,7 @@ pub async fn update_name(
             let note = store
                 .update_note_name(id.to_string(), newname.to_string(), newid)
                 .await?;
+
             Ok(warp::reply::json(&note))
         }
     }

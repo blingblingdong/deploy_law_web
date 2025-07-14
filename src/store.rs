@@ -320,7 +320,7 @@ impl Store {
             "UPDATE directory 
             SET public = $1, description = $2
             WHERE id = $3
-            RETURNING id, user_name, directory, public, description note_order",
+            RETURNING id, user_name, directory, public, description, note_order",
         )
         .bind(public)
         .bind(description)
