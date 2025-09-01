@@ -15,10 +15,10 @@ RUN apt-get update && \
     libx11-dev \
     libfreetype6 \
     libfontconfig1 && \
-    # 下載 wkhtmltopdf 官方 deb (0.12.6-1 for focal, 可以正常用)
-    wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.buster_amd64.deb && \
-    apt-get install -y ./wkhtmltox_0.12.6-1.buster_amd64.deb && \
-    rm wkhtmltox_0.12.6-1.buster_amd64.deb
+    wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb && \
+    apt-get install -y ./wkhtmltox_0.12.6-1.focal_amd64.deb && \
+    rm wkhtmltox_0.12.6-1.focal_amd64.deb
+
 
 ENV PKG_CONFIG_ALLOW_CROSS=1
 ENV OPENSSL_DIR=/usr
