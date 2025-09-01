@@ -1,4 +1,5 @@
 use crate::types::account::Account;
+use crate::types::dictionary::{Dictionary, VocabItem, VocabItemLaw};
 use crate::types::directory::Directory;
 use crate::types::file::{File, Files};
 use crate::types::note::Note;
@@ -320,7 +321,7 @@ impl Store {
             "UPDATE directory 
             SET public = $1, description = $2
             WHERE id = $3
-            RETURNING id, user_name, directory, public, description, note_order",
+            RETURNING id, user_name, directory, public, description note_order",
         )
         .bind(public)
         .bind(description)
@@ -1200,6 +1201,377 @@ impl Store {
         .await
         {
             Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn delete_dictionary(&self, id: &str) -> Result<Dictionary, handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM dictionary
+            Where id = $1
+           RETURNING id, user_name, name",
+        )
+        .bind(id)
+        .map(|row: PgRow| Dictionary {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            name: row.get("name"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(dic) => Ok(dic),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_dictionary(
+        &self,
+        user_name: &str,
+        dictionary_name: &str,
+        id: &str,
+    ) -> Result<Dictionary, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO dictionary (id, name, user_name)
+         VALUES ($1, $2, $3)
+         RETURNING id, name, user_name",
+        )
+        .bind(id)
+        .bind(user_name)
+        .bind(dictionary_name)
+        .map(|row: PgRow| Dictionary {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            name: row.get("name"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(dic) => Ok(dic),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_dictionary(&self, id: &str) -> Result<Dictionary, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from dictionary
+        WHERE id = $1",
+        )
+        .bind(id)
+        .map(|row: PgRow| Dictionary {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            name: row.get("name"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(dic) => Ok(dic),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_dictionary_by_user(
+        &self,
+        user_name: &str,
+    ) -> Result<Vec<Dictionary>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from dictionary
+        WHERE user_name = $1",
+        )
+        .bind(user_name)
+        .map(|row: PgRow| Dictionary {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            name: row.get("name"),
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(dic) => Ok(dic),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_vocabitem_user(
+        &self,
+        user_name: &str,
+    ) -> Result<Vec<VocabItem>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from vocab_item
+        WHERE user_name = $1",
+        )
+        .bind(user_name)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_vocabitem_dictionary(
+        &self,
+        dictionary: &str,
+    ) -> Result<Vec<VocabItem>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT * from vocab_item
+        WHERE dictionary = $1",
+        )
+        .bind(dictionary)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_vocabitem_term(
+        &self,
+        term: &str,
+    ) -> Result<Vec<VocabItem>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM vocab_item WHERE term ILIKE $1")
+            .bind(term)
+            .map(|row: PgRow| VocabItem {
+                id: row.get("id"),
+                user_name: row.get("user_name"),
+                term: row.get("term"),
+                definition: row.get("definition"),
+                dictionary: row.get("dictionary"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_vocabitem_def(
+        &self,
+        def: &str,
+    ) -> Result<Vec<VocabItem>, handle_errors::Error> {
+        match sqlx::query("SELECT * FROM vocab_item WHERE definition ILIKE $1")
+            .bind(def)
+            .map(|row: PgRow| VocabItem {
+                id: row.get("id"),
+                user_name: row.get("user_name"),
+                term: row.get("term"),
+                definition: row.get("definition"),
+                dictionary: row.get("dictionary"),
+            })
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(items) => Ok(items),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_vocabitem(&self, item: VocabItem) -> Result<VocabItem, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO vocab_item (id, user_name, term, definition, dictionary)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, user_name, term, definition, dictionary",
+        )
+        .bind(&item.id)
+        .bind(&item.user_name)
+        .bind(&item.term)
+        .bind(&item.definition)
+        .bind(&item.dictionary)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(inserted) => Ok(inserted),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn delete_vocabitem(&self, id: &str) -> Result<VocabItem, handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM vocab_item
+         WHERE id = $1
+         RETURNING id, user_name, term, definition, dictionary",
+        )
+        .bind(id)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(item) => Ok(item),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn update_vocabitem(
+        &self,
+        item: VocabItem,
+    ) -> Result<VocabItem, handle_errors::Error> {
+        match sqlx::query(
+            "UPDATE vocab_item
+         SET term = $1,
+             definition = $2
+         WHERE id = $3
+         RETURNING id, user_name, term, definition, dictionary",
+        )
+        .bind(&item.term)
+        .bind(&item.definition)
+        .bind(&item.id)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(updated) => Ok(updated),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn add_vocabitem_law(
+        &self,
+        item: VocabItemLaw,
+    ) -> Result<VocabItemLaw, handle_errors::Error> {
+        match sqlx::query(
+            "INSERT INTO vocabitem_law (vocabitem_id, law_id)
+         VALUES ($1, $2)
+         RETURNING vocabitem_id, law_id",
+        )
+        .bind(&item.vocabitem_id)
+        .bind(&item.law_id)
+        .map(|row: PgRow| VocabItemLaw {
+            vocabitem_id: row.get("vocabitem_id"),
+            law_id: row.get("law_id"),
+        })
+        .fetch_one(&self.connection)
+        .await
+        {
+            Ok(item) => Ok(item),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_vocabitems_by_law_id(
+        &self,
+        law_id: &str,
+    ) -> Result<Vec<VocabItem>, handle_errors::Error> {
+        match sqlx::query(
+            "SELECT vocab_item.*
+         FROM vocab_item
+         JOIN vocabitem_law ON vocab_item.id = vocabitem_law.vocabitem_id
+         WHERE vocabitem_law.law_id = $1",
+        )
+        .bind(law_id)
+        .map(|row: PgRow| VocabItem {
+            id: row.get("id"),
+            user_name: row.get("user_name"),
+            term: row.get("term"),
+            definition: row.get("definition"),
+            dictionary: row.get("dictionary"),
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_law_ids_by_vocabitem(
+        &self,
+        vocabitem_id: &str,
+    ) -> Result<Vec<String>, handle_errors::Error> {
+        match sqlx::query("SELECT law_id FROM vocabitem_law WHERE vocabitem_id = $1")
+            .bind(vocabitem_id)
+            .map(|row: PgRow| row.get("law_id"))
+            .fetch_all(&self.connection)
+            .await
+        {
+            Ok(laws) => Ok(laws),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn get_laws_by_vocabitem(
+        &self,
+        item_id: &str,
+    ) -> Result<Vec<new_law::NewLaw>, handle_errors::Error> {
+        match sqlx::query(
+            "
+SELECT newlaw.*
+FROM newlaw
+JOIN vocabitem_law ON newlaw.id = vocabitem_law.law_id
+WHERE vocabitem_law.vocabitem_id = $1
+",
+        )
+        .bind(item_id)
+        .map(|row: PgRow| {
+            let lines_json: serde_json::Value = row.get("lines");
+            let lines: Vec<new_law::Line> = serde_json::from_value(lines_json).unwrap();
+            new_law::NewLaw {
+                id: row.get("id"),
+                href: row.get("href"),
+                chapter: row.get("chapter"),
+                num: row.get("num"),
+                lines,
+            }
+        })
+        .fetch_all(&self.connection)
+        .await
+        {
+            Ok(list) => Ok(list),
+            Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
+        }
+    }
+
+    pub async fn delete_vocabitem_law(
+        &self,
+        item_id: &str,
+        law_id: &str,
+    ) -> Result<(), handle_errors::Error> {
+        match sqlx::query(
+            "DELETE FROM vocabitem_law
+         WHERE  vocabitem_id = $1
+  AND law_id = $2",
+        )
+        .bind(item_id)
+        .bind(law_id)
+        .execute(&self.connection)
+        .await
+        {
+            Ok(_) => Ok(()),
             Err(e) => Err(handle_errors::Error::DatabaseQueryError(e)),
         }
     }

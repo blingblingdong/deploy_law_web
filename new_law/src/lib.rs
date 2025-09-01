@@ -1,12 +1,11 @@
 #[allow(non_snake_case)]
-use indexmap::{IndexMap};
+use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::Row;
 use std::error::Error;
-use std::io::{BufRead};
-
+use std::io::BufRead;
 
 #[derive(Debug)]
 pub enum LawError {
@@ -15,7 +14,7 @@ pub enum LawError {
     SQLError(sqlx::Error),
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, sqlx::FromRow)]
 pub struct Line {
     pub line_type: String,
     pub content: String,
@@ -39,7 +38,7 @@ fn format_lines(node: select::node::Node) -> Vec<Line> {
 }
 */
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, sqlx::FromRow)]
 pub struct NewLaw {
     pub id: String,
     pub href: String,
@@ -60,20 +59,19 @@ impl NewLaw {
                  href = EXCLUDED.href,
                  chapter = EXCLUDED.chapter",
         )
-            .bind(&self.id)
-            .bind(&self.num)
-            .bind(&json_lines)
-            .bind(&self.href)
-            .bind(&self.chapter)
-            .execute(pool)
-            .await
+        .bind(&self.id)
+        .bind(&self.num)
+        .bind(&json_lines)
+        .bind(&self.href)
+        .bind(&self.chapter)
+        .execute(pool)
+        .await
         {
             Ok(_) => println!("✅ Upserted: {}", self.id),
             Err(e) => eprintln!("❌ Failed [{}]: {}", self.id, e),
         }
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct NewLaws {
@@ -237,19 +235,19 @@ impl NewLaws {
             "SELECT * FROM newlaw
         ORDER BY created_at ASC;",
         )
-            .map(|row: PgRow| {
-                let lines_json: serde_json::Value = row.get("lines");
-                let lines: Vec<Line> = serde_json::from_value(lines_json).unwrap();
-                NewLaw {
-                    id: row.get("id"),
-                    num: row.get("num"),
-                    lines,
-                    href: row.get("href"),
-                    chapter: row.get("chapter"),
-                }
-            })
-            .fetch_all(&db_pool)
-            .await
+        .map(|row: PgRow| {
+            let lines_json: serde_json::Value = row.get("lines");
+            let lines: Vec<Line> = serde_json::from_value(lines_json).unwrap();
+            NewLaw {
+                id: row.get("id"),
+                num: row.get("num"),
+                lines,
+                href: row.get("href"),
+                chapter: row.get("chapter"),
+            }
+        })
+        .fetch_all(&db_pool)
+        .await
         {
             Ok(lines) => Ok(NewLaws { lines }),
             Err(_e) => Err(sqlx::Error::WorkerCrashed),

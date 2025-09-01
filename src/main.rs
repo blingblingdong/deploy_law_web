@@ -552,6 +552,30 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(new_law_filter.clone())
         .and_then(routes::otherlawresource::get_all_lawname_list);
 
+    let get_dictionary = warp::get()
+        .and(warp::path!("dictionary" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_dictionary);
+
+    let get_dictionary_by_user = warp::get()
+        .and(warp::path!("dictionary" / "by_user" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_dictionary_by_user);
+
+    let add_dictionary = warp::post()
+        .and(warp::path!("dictionary" / String / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::add_dictionary);
+
+    let delete_dictionary = warp::delete()
+        .and(warp::path!("dictionary" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::delete_dictionary);
+
     let get_newinter_list = warp::get()
         .and(warp::path!("newinterpretationlist"))
         .and(warp::path::end())
@@ -580,6 +604,75 @@ async fn main() -> Result<(), handle_errors::Error> {
         .and(warp::path::end())
         .and_then(routes::authentication::are_you_in_redis);
 
+    let delete_vocabitem = warp::delete()
+        .and(warp::path!("vocabitem" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::delete_vocabitem);
+
+    let add_vocabitem = warp::post()
+        .and(warp::path("vocabitem"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::dictionary::add_vocabitem);
+
+    let update_vocabitem = warp::put()
+        .and(warp::path("vocabitem"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::dictionary::update_vocabitem);
+
+    let get_by_dictionary = warp::get()
+        .and(warp::path!("vocabitem" / "by_dictionary" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_vocabitems_by_dictionary);
+
+    let get_by_term = warp::get()
+        .and(warp::path!("vocabitem" / "by_term" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_vocabitems_by_term);
+
+    let get_by_definition = warp::get()
+        .and(warp::path!("vocabitem" / "by_definition" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_vocabitems_by_definition);
+
+    let get_by_user = warp::get()
+        .and(warp::path!("vocabitem" / "by_user" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_vocabitems_by_user);
+
+    let get_laws_by_vocabitemid = warp::get()
+        .and(warp::path!("lawAndvocabitem" / "laws" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_laws_by_vocabitem);
+
+    let get_vocabitems_by_lawid = warp::get()
+        .and(warp::path!("lawAndvocabitem" / "items" / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::get_vocabitems_by_law);
+
+    let add_vocabitemlaw = warp::post()
+        .and(warp::path("lawAndvocabitem"))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and(warp::body::json())
+        .and_then(routes::dictionary::add_vocabitem_law);
+
+    let delete_vocabitemlaw = warp::delete()
+        .and(warp::path!("lawAndvocabitem" / String / String))
+        .and(warp::path::end())
+        .and(store_filter.clone())
+        .and_then(routes::dictionary::delete_vocabitemlaw);
+
     // 3. 建立路由：GET /get?key=xxx
 
     // let static_files = warp::fs::dir("static");
@@ -587,6 +680,18 @@ async fn main() -> Result<(), handle_errors::Error> {
     // 新增靜態文件路由
 
     let routes = clean_redis
+        .or(delete_vocabitemlaw)
+        .or(add_vocabitemlaw)
+        .or(get_vocabitems_by_lawid)
+        .or(get_laws_by_vocabitemid)
+        .or(get_dictionary_by_user)
+        .or(get_by_dictionary)
+        .or(get_by_term)
+        .or(get_by_definition)
+        .or(get_by_user)
+        .or(delete_vocabitem)
+        .or(add_vocabitem)
+        .or(update_vocabitem)
         .or(get_library_item)
         .or(get_folder_list)
         .or(get_note_order)
@@ -649,6 +754,9 @@ async fn main() -> Result<(), handle_errors::Error> {
         .or(get_all_chapter)
         .or(get_dir_gallery)
         .or(update_note_order)
+        .or(get_dictionary)
+        .or(delete_dictionary)
+        .or(add_dictionary)
         .with(warp::trace::request()) // 提供靜態文件
         .with(cors)
         .recover(return_error);

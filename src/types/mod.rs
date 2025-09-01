@@ -1,8 +1,7 @@
+pub(crate) mod Library;
 pub mod account;
+pub mod dictionary;
 pub(crate) mod directory;
 pub mod file;
-
-pub mod note;
 mod newinterpretation;
-pub(crate) mod Library;
-
+pub mod note;
