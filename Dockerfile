@@ -1,4 +1,4 @@
-FROM rust:1.79-bullseye AS builder
+FROM rust:1.88-bullseye AS builder
 
 
 RUN rustup target add x86_64-unknown-linux-musl
