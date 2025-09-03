@@ -26,9 +26,9 @@ ENV CC_x86_64_unknown_linux_musl="x86_64-unknown-linux-gnu-gcc"
 WORKDIR /app
 COPY ./ .
 
-RUN which wkhtmltopdf
+
 RUN cargo build --target x86_64-unknown-linux-musl --release
-RUN wkhtmltopdf --version
+
 
 
 FROM debian:bookworm-slim
