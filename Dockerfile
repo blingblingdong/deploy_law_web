@@ -14,10 +14,7 @@ RUN apt-get update && \
     libxrender1 \
     libx11-dev \
     libfreetype6 \
-    libfontconfig1 && \
-    wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb && \
-    apt-get install -y ./wkhtmltox_0.12.6-1.focal_amd64.deb && \
-    rm wkhtmltox_0.12.6-1.focal_amd64.deb
+    libfontconfig1
 
 
 ENV PKG_CONFIG_ALLOW_CROSS=1
