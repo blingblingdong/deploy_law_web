@@ -1,4 +1,4 @@
-FROM rust:latest AS builder
+FROM rust:1.79-bullseye AS builder
 
 
 RUN rustup target add x86_64-unknown-linux-musl
@@ -10,6 +10,7 @@ RUN apt-get update && \
     build-essential \
     libssl-dev \
     pkg-config \
+    wkhtmltopdf \
     libxrender1 \
     libx11-dev \
     libfreetype6 \
@@ -27,9 +28,9 @@ WORKDIR /app
 COPY ./ .
 
 
-
+RUN which wkhtmltopdf
 RUN cargo build --target x86_64-unknown-linux-musl --release
-
+RUN wkhtmltopdf --version
 
 
 FROM debian:bookworm-slim
