@@ -7,5 +7,5 @@ pub struct Directory {
     pub directory: String,
     pub public: bool,
     pub description: String,
-    pub note_order: Option<Vec<String>>,
+    pub note_order: Vec<String>,
 }
