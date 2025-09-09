@@ -139,7 +139,7 @@ async fn tryscrapehistory2() -> Result<(), Box<dyn Error>> {
 #[tokio::test]
 async fn get_one_law() -> Result<(), Box<dyn Error>> {
     let pool = new_pool("postgresql://postgres:IoNTPUpeBHZMjpfpbdHDfIKzzbSQCIEm@autorack.proxy.rlwy.net:10488/railway").await;
-    let href = "https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=D0070119".to_string();
+    let href = "https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=G0380028".to_string();
     let semaphore = Arc::new(Semaphore::new(50));
     let pool = Arc::new(pool);
 

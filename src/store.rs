@@ -670,15 +670,16 @@ impl Store {
         directory: Directory,
     ) -> Result<Directory, handle_errors::Error> {
         match sqlx::query(
-            "INSERT INTO directory (id, user_name, directory, public, description)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, user_name, directory, public, description",
+            "INSERT INTO directory (id, user_name, directory, public, description, note_order)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, user_name, directory, public, description, note_order",
         )
         .bind(directory.id)
         .bind(directory.user_name)
         .bind(directory.directory)
         .bind(directory.public)
         .bind(directory.description)
+            .bind(directory.note_order)
         .map(|row: PgRow| Directory {
             id: row.get("id"),
             user_name: row.get("user_name"),
