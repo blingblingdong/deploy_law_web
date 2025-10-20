@@ -1,4 +1,5 @@
-FROM rust:1.88-bullseye AS builder
+FROM rust:1.85.1-bullseye AS builder
+
 
 # 安裝 musl 工具與必要函式庫
 RUN apt-get update && \
